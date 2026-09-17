@@ -28,6 +28,16 @@ services:
       S3_BUCKET: ${S3_BUCKET:-fruit-images}
       S3_USE_SSL: "false"
       S3_FORCE_PATH_STYLE: "true"
+      # MQTT (backend connects to Mosquitto over TLS as the privileged account)
+      MQTT_BROKER_URL: tls://mosquitto:8883
+      MQTT_CLIENT_ID: vleefruit-backend
+      MQTT_USERNAME: backend
+      MQTT_PASSWORD: ${MQTT_BACKEND_PASSWORD:-backend-dev-secret}
+      MQTT_TLS_CA: /certs/ca.crt
+      # Admin bearer token for the management REST API
+      ADMIN_TOKEN: ${ADMIN_TOKEN:-dev-admin-token}
+    volumes:
+      - ./mosquitto/certs/ca.crt:/certs/ca.crt:ro
     depends_on:
       postgres:
         condition: service_healthy
@@ -35,6 +45,8 @@ services:
         condition: service_healthy
       minio:
         condition: service_healthy
+      mosquitto:
+        condition: service_started
     networks:
       - vleefruit
 
@@ -90,6 +102,21 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - vleefruit
+
+  mosquitto:
+    image: iegomez/mosquitto-go-auth:latest
+    restart: unless-stopped
+    ports:
+      - "${MQTT_TLS_PORT:-8883}:8883"   # device-facing TLS
+      - "${MQTT_PORT:-1883}:1883"       # internal / dev tooling
+    volumes:
+      - ./mosquitto/mosquitto.conf:/etc/mosquitto/mosquitto.conf:ro
+      - ./mosquitto/certs:/mosquitto/certs:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
     networks:
       - vleefruit
 
