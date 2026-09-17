@@ -74,7 +74,7 @@ services:
       - vleefruit
 
   minio:
-    image: minio/minio:latest
+    image: quay.io/minio/minio:latest
     restart: unless-stopped
     command: ["server", "/data", "--console-address", ":9001"]
     environment:
@@ -95,7 +95,7 @@ services:
 
   # One-shot: waits for MinIO, then creates the bucket if it does not exist.
   minio-init:
-    image: minio/mc:latest
+    image: quay.io/minio/mc:latest
     depends_on:
       minio:
         condition: service_healthy
