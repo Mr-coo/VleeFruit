@@ -5,9 +5,8 @@
 ########################
 FROM golang:1.25-alpine AS builder
 
-# Path to the main package to compile (override at build time if your
-# entrypoint lives elsewhere, e.g. --build-arg MAIN_PKG=./cmd/server).
-ARG MAIN_PKG=.
+# Path to the main package to compile.
+ARG MAIN_PKG=./cmd/api
 
 WORKDIR /src
 
