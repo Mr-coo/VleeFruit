@@ -1,0 +1,72 @@
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    image: vleefruit-backend:latest
+    restart: unless-stopped
+    ports:
+      - "${BACKEND_PORT:-8080}:8080"
+    environment:
+      # Postgres (matches gorm.io/driver/postgres DSN pieces)
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_USER: ${POSTGRES_USER:-vleefruit}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-vleefruit}
+      DB_NAME: ${POSTGRES_DB:-vleefruit}
+      DB_SSLMODE: disable
+      DATABASE_URL: postgres://${POSTGRES_USER:-vleefruit}:${POSTGRES_PASSWORD:-vleefruit}@postgres:5432/${POSTGRES_DB:-vleefruit}?sslmode=disable
+      # Redis (matches redis/go-redis)
+      REDIS_ADDR: redis:6379
+      REDIS_PASSWORD: ""
+      REDIS_DB: "0"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - vleefruit
+
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-vleefruit}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-vleefruit}
+      POSTGRES_DB: ${POSTGRES_DB:-vleefruit}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-vleefruit} -d ${POSTGRES_DB:-vleefruit}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - vleefruit
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - vleefruit
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  vleefruit:
+    driver: bridge

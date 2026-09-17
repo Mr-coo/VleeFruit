@@ -1,0 +1,25 @@
+# Version control
+.git
+.gitignore
+
+# Docker
+Dockerfile
+.dockerignore
+docker-compose*.yml
+
+# Env / secrets
+.env
+*.env
+!.env.example
+
+# Build output & local tooling
+bin/
+dist/
+tmp/
+*.log
+
+# Editor / OS cruft
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
