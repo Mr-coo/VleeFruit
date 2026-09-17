@@ -1,0 +1,22 @@
+# Env / secrets
+.env
+*.env
+!.env.example
+
+# Go build output
+/backend/bin/
+/backend/app
+*.exe
+*.test
+*.out
+
+# TLS certs (dev, generated)
+mosquitto/certs/*.key
+mosquitto/certs/*.crt
+mosquitto/certs/*.csr
+
+# Editor / OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
