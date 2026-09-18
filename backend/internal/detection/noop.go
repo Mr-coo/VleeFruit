@@ -15,17 +15,21 @@ type noopDetector struct{}
 func NewNoop() Detector { return noopDetector{} }
 
 func (noopDetector) Detect(_ context.Context, img []byte, _ string) (Result, error) {
-	// Cheap deterministic pick so results vary across images without a model.
+	// Cheap deterministic picks so results vary across images without a model.
 	levels := []domain.Ripeness{
 		domain.RipenessUnripe,
 		domain.RipenessRipe,
 		domain.RipenessOverripe,
 		domain.RipenessSpoiled,
 	}
-	idx := len(img) % len(levels)
+	n := len(img)
 	return Result{
-		Ripeness:     levels[idx],
-		Confidence:   0,
-		ModelVersion: "noop",
+		Ripeness:           levels[n%len(levels)],
+		RipenessConfidence: 0,
+		Defective:          n%2 == 0,
+		DefectConfidence:   0,
+		Size:               float64(50 + n%50), // fake diameter in mm
+		SizeUnit:           "mm",
+		ModelVersion:       "noop",
 	}, nil
 }

@@ -81,8 +81,9 @@ backend/
 - **Batch** — fruit lot: `id, fruit_type, batch_code, storage_location, created_at`.
 - **Image** — `id, batch_id?, device_id, object_key, bucket, content_type, size_bytes,
   width, height, captured_at`.
-- **DetectionResult** — `id, image_id, ripeness (unripe|ripe|overripe|spoiled),
-  confidence, model_version, created_at`.
+- **DetectionResult** — the per-image verdict across all three tasks:
+  `id, image_id, ripeness (unripe|ripe|overripe|spoiled), ripeness_confidence,
+  defective (bool), defect_confidence, size, size_unit, model_version, created_at`.
 - **SensorReading** — `id, device_id, batch_id?, metric (ethylene|temperature|humidity),
   value, unit, recorded_at`.
 

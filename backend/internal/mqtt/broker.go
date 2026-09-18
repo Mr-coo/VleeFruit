@@ -111,7 +111,11 @@ func (b *Broker) handleImage(_ paho.Client, msg paho.Message) {
 	}
 	b.client.Publish(resultTopic(deviceID), qosAtLeastOnce, false, payload)
 	b.log.Info("image ingested and result published",
-		"device_id", deviceID, "ripeness", result.Ripeness, "confidence", result.Confidence)
+		"device_id", deviceID,
+		"ripeness", result.Ripeness,
+		"ripeness_confidence", result.RipenessConfidence,
+		"defective", result.Defective,
+		"size", result.Size, "size_unit", result.SizeUnit)
 }
 
 // handleReading parses and stores a telemetry message.

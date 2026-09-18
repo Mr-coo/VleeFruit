@@ -68,9 +68,13 @@ func (s *IngestionService) IngestImage(ctx context.Context, deviceID string, raw
 		Height:      processed.Height,
 		CapturedAt:  time.Now(),
 		Detection: &domain.DetectionResult{
-			Ripeness:     result.Ripeness,
-			Confidence:   result.Confidence,
-			ModelVersion: result.ModelVersion,
+			Ripeness:           result.Ripeness,
+			RipenessConfidence: result.RipenessConfidence,
+			Defective:          result.Defective,
+			DefectConfidence:   result.DefectConfidence,
+			Size:               result.Size,
+			SizeUnit:           result.SizeUnit,
+			ModelVersion:       result.ModelVersion,
 		},
 	}
 	if err := s.imageRepo.Create(ctx, img); err != nil {
