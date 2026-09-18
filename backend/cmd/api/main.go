@@ -83,7 +83,7 @@ func run() error {
 	readingRepo := repository.NewReadingRepository(db)
 
 	// --- Services ---
-	detector := detection.NewNoop() // swap for ONNX once a model is added
+	detector := detection.NewDummy() // static test stub; swap for ONNX once a model is added
 	deviceSvc := service.NewDeviceService(deviceRepo)
 	ingestionSvc := service.NewIngestionService(store, detector, imageRepo)
 	readingSvc := service.NewReadingService(readingRepo)
