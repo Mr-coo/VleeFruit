@@ -19,7 +19,8 @@ type Handlers struct {
 // /api/v1 sits behind the admin bearer token.
 func NewRouter(cfg *config.Config, h Handlers) *gin.Engine {
 	r := gin.New()
-	r.Use(gin.Recovery(), gin.Logger(), middleware.RequestID())
+	r.Use(gin.Recovery(), gin.Logger(), middleware.RequestID(),
+		middleware.RateLimit(cfg.HTTP.RateLimitRPS, cfg.HTTP.RateLimitBurst))
 
 	r.GET("/healthz", h.Health.Check)
 
