@@ -3,7 +3,7 @@ package mqtt
 import (
 	"context"
 	"encoding/json"
-	"log"
+	"log/slog"
 	"time"
 
 	"github.com/Mr-coo/VleeFruit/backend/internal/config"
@@ -26,6 +26,7 @@ type Broker struct {
 	ingestion     *service.IngestionService
 	readings      *service.ReadingService
 	devices       *repository.DeviceRepository
+	log           *slog.Logger
 	maxImageBytes int64
 }
 
@@ -34,7 +35,12 @@ func NewBroker(
 	readings *service.ReadingService,
 	devices *repository.DeviceRepository,
 ) *Broker {
-	return &Broker{ingestion: ingestion, readings: readings, devices: devices}
+	return &Broker{
+		ingestion: ingestion,
+		readings:  readings,
+		devices:   devices,
+		log:       slog.Default().With("component", "mqtt"),
+	}
 }
 
 // Connect builds the client and starts connecting in the background. It does
@@ -49,7 +55,7 @@ func (b *Broker) Connect(cfg config.MQTTConfig) error {
 	b.client = paho.NewClient(opts)
 	token := b.client.Connect()
 	if token.WaitTimeout(15*time.Second) && token.Error() != nil {
-		log.Printf("mqtt: initial connect error (will keep retrying): %v", token.Error())
+		b.log.Warn("initial connect failed, will keep retrying", "error", token.Error())
 	}
 	return nil
 }
@@ -57,12 +63,13 @@ func (b *Broker) Connect(cfg config.MQTTConfig) error {
 // onConnect (re)subscribes on every successful connection.
 func (b *Broker) onConnect(c paho.Client) {
 	if token := c.Subscribe(topicImagesWildcard, qosAtLeastOnce, b.handleImage); token.Wait() && token.Error() != nil {
-		log.Printf("mqtt: subscribe %s: %v", topicImagesWildcard, token.Error())
+		b.log.Error("subscribe failed", "topic", topicImagesWildcard, "error", token.Error())
 	}
 	if token := c.Subscribe(topicReadingsWildcard, qosAtLeastOnce, b.handleReading); token.Wait() && token.Error() != nil {
-		log.Printf("mqtt: subscribe %s: %v", topicReadingsWildcard, token.Error())
+		b.log.Error("subscribe failed", "topic", topicReadingsWildcard, "error", token.Error())
 	}
-	log.Printf("mqtt: connected and subscribed to %s, %s", topicImagesWildcard, topicReadingsWildcard)
+	b.log.Info("connected and subscribed",
+		"images_topic", topicImagesWildcard, "readings_topic", topicReadingsWildcard)
 }
 
 // Stop disconnects the client.
@@ -76,13 +83,13 @@ func (b *Broker) Stop() {
 func (b *Broker) handleImage(_ paho.Client, msg paho.Message) {
 	deviceID, ok := deviceIDFromTopic(msg.Topic())
 	if !ok {
-		log.Printf("mqtt: bad image topic %q", msg.Topic())
+		b.log.Warn("bad image topic", "topic", msg.Topic())
 		return
 	}
 
 	if b.maxImageBytes > 0 && int64(len(msg.Payload())) > b.maxImageBytes {
-		log.Printf("mqtt: image from %s rejected: %d bytes exceeds limit %d",
-			deviceID, len(msg.Payload()), b.maxImageBytes)
+		b.log.Warn("image rejected: payload too large",
+			"device_id", deviceID, "size_bytes", len(msg.Payload()), "limit_bytes", b.maxImageBytes)
 		return
 	}
 
@@ -93,23 +100,25 @@ func (b *Broker) handleImage(_ paho.Client, msg paho.Message) {
 
 	result, err := b.ingestion.IngestImage(ctx, deviceID, msg.Payload())
 	if err != nil {
-		log.Printf("mqtt: ingest image from %s: %v", deviceID, err)
+		b.log.Error("ingest image failed", "device_id", deviceID, "error", err)
 		return
 	}
 
 	payload, err := json.Marshal(result)
 	if err != nil {
-		log.Printf("mqtt: marshal result for %s: %v", deviceID, err)
+		b.log.Error("marshal result failed", "device_id", deviceID, "error", err)
 		return
 	}
 	b.client.Publish(resultTopic(deviceID), qosAtLeastOnce, false, payload)
+	b.log.Info("image ingested and result published",
+		"device_id", deviceID, "ripeness", result.Ripeness, "confidence", result.Confidence)
 }
 
 // handleReading parses and stores a telemetry message.
 func (b *Broker) handleReading(_ paho.Client, msg paho.Message) {
 	deviceID, ok := deviceIDFromTopic(msg.Topic())
 	if !ok {
-		log.Printf("mqtt: bad reading topic %q", msg.Topic())
+		b.log.Warn("bad reading topic", "topic", msg.Topic())
 		return
 	}
 
@@ -121,19 +130,19 @@ func (b *Broker) handleReading(_ paho.Client, msg paho.Message) {
 		RecordedAt *time.Time    `json:"recorded_at"`
 	}
 	if err := json.Unmarshal(msg.Payload(), &payload); err != nil {
-		log.Printf("mqtt: bad reading payload from %s: %v", deviceID, err)
+		b.log.Warn("bad reading payload", "device_id", deviceID, "error", err)
 		return
 	}
 	if !payload.Metric.Valid() {
-		log.Printf("mqtt: reading from %s rejected: invalid metric %q", deviceID, payload.Metric)
+		b.log.Warn("reading rejected: invalid metric", "device_id", deviceID, "metric", payload.Metric)
 		return
 	}
 	if err := validation.ReadingValue(payload.Value); err != nil {
-		log.Printf("mqtt: reading from %s rejected: %v", deviceID, err)
+		b.log.Warn("reading rejected: invalid value", "device_id", deviceID, "error", err)
 		return
 	}
 	if err := validation.Unit(payload.Unit); err != nil {
-		log.Printf("mqtt: reading from %s rejected: %v", deviceID, err)
+		b.log.Warn("reading rejected: invalid unit", "device_id", deviceID, "error", err)
 		return
 	}
 
@@ -153,13 +162,16 @@ func (b *Broker) handleReading(_ paho.Client, msg paho.Message) {
 		reading.RecordedAt = *payload.RecordedAt
 	}
 	if err := b.readings.Record(ctx, reading); err != nil {
-		log.Printf("mqtt: record reading from %s: %v", deviceID, err)
+		b.log.Error("record reading failed", "device_id", deviceID, "error", err)
+		return
 	}
+	b.log.Debug("reading recorded",
+		"device_id", deviceID, "metric", payload.Metric, "value", payload.Value)
 }
 
 // touch best-effort updates a device's last-seen timestamp.
 func (b *Broker) touch(ctx context.Context, deviceID string) {
 	if err := b.devices.TouchLastSeen(ctx, deviceID); err != nil {
-		log.Printf("mqtt: touch last_seen for %s: %v", deviceID, err)
+		b.log.Warn("touch last_seen failed", "device_id", deviceID, "error", err)
 	}
 }

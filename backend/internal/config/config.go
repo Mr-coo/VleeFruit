@@ -5,6 +5,7 @@ package config
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/joho/godotenv"
 )
@@ -13,6 +14,11 @@ import (
 type Config struct {
 	HTTPPort   string
 	AdminToken string
+
+	// Env is the deployment environment (development|production); it selects the
+	// log format and Gin's mode. LogLevel is debug|info|warn|error.
+	Env      string
+	LogLevel string
 
 	HTTP     HTTPConfig
 	Postgres PostgresConfig
@@ -71,6 +77,16 @@ type MQTTConfig struct {
 	MaxImageBytes int64
 }
 
+// IsProduction reports whether the app runs in a production-like environment.
+func (c *Config) IsProduction() bool {
+	switch strings.ToLower(strings.TrimSpace(c.Env)) {
+	case "prod", "production":
+		return true
+	default:
+		return false
+	}
+}
+
 // DSN returns a GORM-compatible Postgres connection string.
 func (p PostgresConfig) buildDSN() string {
 	if p.DSN != "" {
@@ -101,6 +117,8 @@ func Load() (*Config, error) {
 	cfg := &Config{
 		HTTPPort:   env("PORT", "8080"),
 		AdminToken: env("ADMIN_TOKEN", "dev-admin-token"),
+		Env:        env("APP_ENV", "development"),
+		LogLevel:   env("LOG_LEVEL", "info"),
 		HTTP: HTTPConfig{
 			MaxBodyBytes:   envInt64("HTTP_MAX_BODY_BYTES", 1<<20), // 1 MiB
 			RateLimitRPS:   envFloat("RATE_LIMIT_RPS", 10),

@@ -42,7 +42,8 @@ func (h *DeviceHandler) Provision(c *gin.Context) {
 
 	device, rawKey, err := h.svc.Provision(c.Request.Context(), req.DeviceID, req.Name, req.Location, req.Kind)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		_ = c.Error(err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -56,7 +57,8 @@ func (h *DeviceHandler) Provision(c *gin.Context) {
 func (h *DeviceHandler) List(c *gin.Context) {
 	devices, err := h.svc.List(c.Request.Context())
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		_ = c.Error(err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"devices": devices})
@@ -70,7 +72,8 @@ func (h *DeviceHandler) Revoke(c *gin.Context) {
 		return
 	}
 	if err := h.svc.Revoke(c.Request.Context(), deviceID); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		_ = c.Error(err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"status": "revoked", "device_id": deviceID})
@@ -85,7 +88,8 @@ func (h *DeviceHandler) RotateKey(c *gin.Context) {
 	}
 	rawKey, err := h.svc.RotateKey(c.Request.Context(), deviceID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		_ = c.Error(err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"device_id": deviceID, "api_key": rawKey})

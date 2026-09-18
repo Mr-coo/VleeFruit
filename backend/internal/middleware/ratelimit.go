@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"log/slog"
 	"net/http"
 	"sync"
 	"time"
@@ -42,6 +43,9 @@ func RateLimit(rps float64, burst int) gin.HandlerFunc {
 
 	return func(c *gin.Context) {
 		if !rl.allow(c.ClientIP()) {
+			slog.WarnContext(c.Request.Context(), "rate limit exceeded",
+				slog.String("client_ip", c.ClientIP()),
+				slog.String("path", c.Request.URL.Path))
 			c.Header("Retry-After", "1")
 			c.AbortWithStatusJSON(http.StatusTooManyRequests, gin.H{"error": "rate limit exceeded"})
 			return

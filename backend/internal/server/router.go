@@ -2,6 +2,8 @@
 package server
 
 import (
+	"log/slog"
+
 	"github.com/Mr-coo/VleeFruit/backend/internal/config"
 	"github.com/Mr-coo/VleeFruit/backend/internal/handler"
 	"github.com/Mr-coo/VleeFruit/backend/internal/middleware"
@@ -17,9 +19,13 @@ type Handlers struct {
 
 // NewRouter builds the Gin engine. /healthz is public; everything under
 // /api/v1 sits behind the admin bearer token.
-func NewRouter(cfg *config.Config, h Handlers) *gin.Engine {
+func NewRouter(cfg *config.Config, l *slog.Logger, h Handlers) *gin.Engine {
+	if cfg.IsProduction() {
+		gin.SetMode(gin.ReleaseMode)
+	}
+
 	r := gin.New()
-	r.Use(gin.Recovery(), gin.Logger(), middleware.RequestID(),
+	r.Use(middleware.Recovery(l), middleware.RequestID(), middleware.Logger(l),
 		middleware.RateLimit(cfg.HTTP.RateLimitRPS, cfg.HTTP.RateLimitBurst))
 
 	r.GET("/healthz", h.Health.Check)

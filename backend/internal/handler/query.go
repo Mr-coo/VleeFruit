@@ -26,7 +26,8 @@ func NewQueryHandler(detections *service.DetectionService, readings *service.Rea
 func (h *QueryHandler) ListDetections(c *gin.Context) {
 	results, err := h.detections.ListResults(c.Request.Context(), limitParam(c))
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		_ = c.Error(err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"detections": results})
@@ -35,7 +36,8 @@ func (h *QueryHandler) ListDetections(c *gin.Context) {
 func (h *QueryHandler) ListImages(c *gin.Context) {
 	images, err := h.detections.ListImages(c.Request.Context(), limitParam(c))
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		_ = c.Error(err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"images": images})
@@ -44,7 +46,8 @@ func (h *QueryHandler) ListImages(c *gin.Context) {
 func (h *QueryHandler) ListReadings(c *gin.Context) {
 	readings, err := h.readings.List(c.Request.Context(), limitParam(c))
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		_ = c.Error(err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"readings": readings})

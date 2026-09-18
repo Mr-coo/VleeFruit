@@ -7,6 +7,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"log/slog"
 
 	"github.com/Mr-coo/VleeFruit/backend/internal/domain"
 	"github.com/Mr-coo/VleeFruit/backend/internal/repository"
@@ -44,6 +45,7 @@ func (s *DeviceService) Provision(ctx context.Context, deviceID, name, location 
 	if err := s.repo.Create(ctx, device); err != nil {
 		return nil, "", fmt.Errorf("create device: %w", err)
 	}
+	slog.InfoContext(ctx, "device provisioned", "device_id", deviceID, "kind", kind)
 	return device, rawKey, nil
 }
 
@@ -54,7 +56,11 @@ func (s *DeviceService) List(ctx context.Context) ([]domain.Device, error) {
 
 // Revoke marks a device as revoked; the broker rejects it on next connect.
 func (s *DeviceService) Revoke(ctx context.Context, deviceID string) error {
-	return s.repo.SetStatus(ctx, deviceID, domain.DeviceStatusRevoked)
+	if err := s.repo.SetStatus(ctx, deviceID, domain.DeviceStatusRevoked); err != nil {
+		return err
+	}
+	slog.InfoContext(ctx, "device revoked", "device_id", deviceID)
+	return nil
 }
 
 // RotateKey issues a fresh API key for a device and returns it once.
@@ -70,6 +76,7 @@ func (s *DeviceService) RotateKey(ctx context.Context, deviceID string) (string,
 	if err := s.repo.UpdateKeyHash(ctx, deviceID, string(hash)); err != nil {
 		return "", fmt.Errorf("update key: %w", err)
 	}
+	slog.InfoContext(ctx, "device key rotated", "device_id", deviceID)
 	return rawKey, nil
 }
 

@@ -5,7 +5,8 @@ package main
 
 import (
 	"context"
-	"log"
+	"log/slog"
+	"os"
 	"os/signal"
 	"syscall"
 	"time"
@@ -15,6 +16,7 @@ import (
 	"github.com/Mr-coo/VleeFruit/backend/internal/database"
 	"github.com/Mr-coo/VleeFruit/backend/internal/detection"
 	"github.com/Mr-coo/VleeFruit/backend/internal/handler"
+	"github.com/Mr-coo/VleeFruit/backend/internal/logger"
 	appmqtt "github.com/Mr-coo/VleeFruit/backend/internal/mqtt"
 	"github.com/Mr-coo/VleeFruit/backend/internal/repository"
 	"github.com/Mr-coo/VleeFruit/backend/internal/server"
@@ -24,7 +26,8 @@ import (
 
 func main() {
 	if err := run(); err != nil {
-		log.Fatal(err)
+		slog.Error("startup failed", "error", err)
+		os.Exit(1)
 	}
 }
 
@@ -33,6 +36,12 @@ func run() error {
 	if err != nil {
 		return err
 	}
+
+	// Structured logging is the first thing wired: everything after it logs
+	// through the configured (dev text / prod JSON) leveled logger.
+	log := logger.New(cfg.Env, cfg.LogLevel)
+	slog.SetDefault(log)
+	log.Info("starting vleefruit backend", "env", cfg.Env, "log_level", cfg.LogLevel)
 
 	// --- Infrastructure ---
 	db, err := database.NewPostgres(cfg.Postgres)
@@ -47,13 +56,13 @@ func run() error {
 	if err := database.SeedServiceAccount(db, cfg.MQTT.Username, cfg.MQTT.Password, true); err != nil {
 		return err
 	}
-	log.Println("postgres: connected and migrated")
+	log.Info("postgres connected and migrated")
 
 	rdb, err := cache.NewRedis(cfg.Redis)
 	if err != nil {
 		return err
 	}
-	log.Println("redis: connected")
+	log.Info("redis connected")
 
 	store, err := storage.NewMinIO(cfg.S3)
 	if err != nil {
@@ -65,7 +74,7 @@ func run() error {
 		return err
 	}
 	cancelBucket()
-	log.Printf("storage: bucket %q ready", store.Bucket())
+	log.Info("object storage ready", "bucket", store.Bucket())
 
 	// --- Repositories ---
 	deviceRepo := repository.NewDeviceRepository(db)
@@ -93,7 +102,7 @@ func run() error {
 		Device: handler.NewDeviceHandler(deviceSvc),
 		Query:  handler.NewQueryHandler(detectionSvc, readingSvc),
 	}
-	engine := server.NewRouter(cfg, handlers)
+	engine := server.NewRouter(cfg, log, handlers)
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()

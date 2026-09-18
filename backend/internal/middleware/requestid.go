@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 
+	"github.com/Mr-coo/VleeFruit/backend/internal/logger"
 	"github.com/gin-gonic/gin"
 )
 
@@ -21,6 +22,7 @@ func RequestID() gin.HandlerFunc {
 			id = hex.EncodeToString(buf)
 		}
 		c.Set("request_id", id)
+		c.Request = c.Request.WithContext(logger.WithRequestID(c.Request.Context(), id))
 		c.Writer.Header().Set(requestIDHeader, id)
 		c.Next()
 	}

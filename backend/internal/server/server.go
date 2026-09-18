@@ -3,7 +3,7 @@ package server
 import (
 	"context"
 	"errors"
-	"log"
+	"log/slog"
 	"net/http"
 	"time"
 
@@ -21,7 +21,7 @@ func Run(ctx context.Context, addr string, engine *gin.Engine) error {
 
 	errCh := make(chan error, 1)
 	go func() {
-		log.Printf("http: listening on %s", addr)
+		slog.Info("http server listening", "addr", addr)
 		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			errCh <- err
 		}
@@ -33,7 +33,7 @@ func Run(ctx context.Context, addr string, engine *gin.Engine) error {
 	case <-ctx.Done():
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
-		log.Println("http: shutting down")
+		slog.Info("http server shutting down")
 		return srv.Shutdown(shutdownCtx)
 	}
 }

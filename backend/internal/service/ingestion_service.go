@@ -6,6 +6,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/Mr-coo/VleeFruit/backend/internal/detection"
@@ -48,6 +49,9 @@ func (s *IngestionService) IngestImage(ctx context.Context, deviceID string, raw
 	if err := s.store.Put(ctx, key, bytes.NewReader(processed.Data), int64(len(processed.Data)), processed.ContentType); err != nil {
 		return nil, fmt.Errorf("store image: %w", err)
 	}
+	slog.DebugContext(ctx, "image stored",
+		"device_id", deviceID, "object_key", key, "size_bytes", len(processed.Data),
+		"width", processed.Width, "height", processed.Height)
 
 	result, err := s.detector.Detect(ctx, processed.Data, processed.ContentType)
 	if err != nil {
