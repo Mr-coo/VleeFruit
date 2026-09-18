@@ -137,6 +137,20 @@ services:
     networks:
       - vleefruit
 
+  # redis-commander: web UI for inspecting Redis during development.
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    restart: unless-stopped
+    ports:
+      - "${REDIS_COMMANDER_PORT:-8082}:8081"
+    environment:
+      REDIS_HOSTS: local:redis:6379
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - vleefruit
+
   # One-shot: waits for MinIO, then creates the bucket if it does not exist.
   minio-init:
     image: quay.io/minio/mc:latest
