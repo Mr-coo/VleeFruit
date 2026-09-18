@@ -23,7 +23,9 @@ func NewRouter(cfg *config.Config, h Handlers) *gin.Engine {
 
 	r.GET("/healthz", h.Health.Check)
 
-	admin := r.Group("/api/v1", middleware.AdminAuth(cfg.AdminToken))
+	admin := r.Group("/api/v1",
+		middleware.BodyLimit(cfg.HTTP.MaxBodyBytes),
+		middleware.AdminAuth(cfg.AdminToken))
 	{
 		admin.POST("/devices", h.Device.Provision)
 		admin.GET("/devices", h.Device.List)

@@ -21,10 +21,11 @@ const (
 // Broker subscribes to device topics and drives the ingestion pipeline,
 // publishing results back to each device.
 type Broker struct {
-	client    paho.Client
-	ingestion *service.IngestionService
-	readings  *service.ReadingService
-	devices   *repository.DeviceRepository
+	client        paho.Client
+	ingestion     *service.IngestionService
+	readings      *service.ReadingService
+	devices       *repository.DeviceRepository
+	maxImageBytes int64
 }
 
 func NewBroker(
@@ -39,6 +40,7 @@ func NewBroker(
 // not fail if the broker is briefly unavailable — paho retries, and
 // subscriptions are (re)established via the on-connect handler.
 func (b *Broker) Connect(cfg config.MQTTConfig) error {
+	b.maxImageBytes = cfg.MaxImageBytes
 	opts, err := newClientOptions(cfg, b.onConnect)
 	if err != nil {
 		return err
@@ -74,6 +76,12 @@ func (b *Broker) handleImage(_ paho.Client, msg paho.Message) {
 	deviceID, ok := deviceIDFromTopic(msg.Topic())
 	if !ok {
 		log.Printf("mqtt: bad image topic %q", msg.Topic())
+		return
+	}
+
+	if b.maxImageBytes > 0 && int64(len(msg.Payload())) > b.maxImageBytes {
+		log.Printf("mqtt: image from %s rejected: %d bytes exceeds limit %d",
+			deviceID, len(msg.Payload()), b.maxImageBytes)
 		return
 	}
 

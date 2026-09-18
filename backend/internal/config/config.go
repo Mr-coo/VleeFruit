@@ -14,10 +14,21 @@ type Config struct {
 	HTTPPort   string
 	AdminToken string
 
+	HTTP     HTTPConfig
 	Postgres PostgresConfig
 	Redis    RedisConfig
 	S3       S3Config
 	MQTT     MQTTConfig
+}
+
+// HTTPConfig tunes the request-facing protections on the REST API.
+type HTTPConfig struct {
+	// MaxBodyBytes caps the request body the admin API will read (0 = unlimited).
+	MaxBodyBytes int64
+	// RateLimitRPS is the sustained per-client request rate (0 = disabled).
+	RateLimitRPS float64
+	// RateLimitBurst is the bucket size allowing short bursts above the rate.
+	RateLimitBurst int
 }
 
 type PostgresConfig struct {
@@ -54,6 +65,10 @@ type MQTTConfig struct {
 	Password  string
 	CAFile    string // path to the broker CA cert for TLS verification
 	Insecure  bool   // skip TLS verification (dev only)
+
+	// MaxImageBytes caps the raw image payload accepted from a device over MQTT
+	// before decoding (0 = unlimited). Guards against memory-exhaustion DoS.
+	MaxImageBytes int64
 }
 
 // DSN returns a GORM-compatible Postgres connection string.
@@ -86,7 +101,12 @@ func Load() (*Config, error) {
 	cfg := &Config{
 		HTTPPort:   env("PORT", "8080"),
 		AdminToken: env("ADMIN_TOKEN", "dev-admin-token"),
-		Postgres:   pg,
+		HTTP: HTTPConfig{
+			MaxBodyBytes:   envInt64("HTTP_MAX_BODY_BYTES", 1<<20), // 1 MiB
+			RateLimitRPS:   envFloat("RATE_LIMIT_RPS", 10),
+			RateLimitBurst: envInt("RATE_LIMIT_BURST", 20),
+		},
+		Postgres: pg,
 		Redis: RedisConfig{
 			Addr:     env("REDIS_ADDR", "localhost:6379"),
 			Password: os.Getenv("REDIS_PASSWORD"),
@@ -106,8 +126,9 @@ func Load() (*Config, error) {
 			ClientID:  env("MQTT_CLIENT_ID", "vleefruit-backend"),
 			Username:  env("MQTT_USERNAME", "backend"),
 			Password:  os.Getenv("MQTT_PASSWORD"),
-			CAFile:    os.Getenv("MQTT_TLS_CA"),
-			Insecure:  envBool("MQTT_TLS_INSECURE", false),
+			CAFile:        os.Getenv("MQTT_TLS_CA"),
+			Insecure:      envBool("MQTT_TLS_INSECURE", false),
+			MaxImageBytes: envInt64("MQTT_MAX_IMAGE_BYTES", 8<<20), // 8 MiB
 		},
 	}
 
