@@ -8,7 +8,10 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-const defaultLimit = 50
+const (
+	defaultLimit = 50
+	maxLimit     = 500
+)
 
 // QueryHandler serves read-only listings of detections, images and readings.
 type QueryHandler struct {
@@ -47,10 +50,14 @@ func (h *QueryHandler) ListReadings(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"readings": readings})
 }
 
-// limitParam reads ?limit=N, defaulting when absent or invalid.
+// limitParam reads ?limit=N, defaulting when absent or invalid and capping at
+// maxLimit so a client cannot request an unbounded scan.
 func limitParam(c *gin.Context) int {
 	if v := c.Query("limit"); v != "" {
 		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			if n > maxLimit {
+				return maxLimit
+			}
 			return n
 		}
 	}

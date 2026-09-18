@@ -11,6 +11,16 @@ const (
 	MetricHumidity    Metric = "humidity"
 )
 
+// Valid reports whether m is one of the known metrics.
+func (m Metric) Valid() bool {
+	switch m {
+	case MetricEthylene, MetricTemperature, MetricHumidity:
+		return true
+	default:
+		return false
+	}
+}
+
 // SensorReading is a single telemetry value published by a device over MQTT.
 type SensorReading struct {
 	ID         uint      `gorm:"primaryKey" json:"id"`

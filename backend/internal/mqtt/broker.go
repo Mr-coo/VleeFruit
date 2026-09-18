@@ -10,6 +10,7 @@ import (
 	"github.com/Mr-coo/VleeFruit/backend/internal/domain"
 	"github.com/Mr-coo/VleeFruit/backend/internal/repository"
 	"github.com/Mr-coo/VleeFruit/backend/internal/service"
+	"github.com/Mr-coo/VleeFruit/backend/internal/validation"
 	paho "github.com/eclipse/paho.mqtt.golang"
 )
 
@@ -121,6 +122,18 @@ func (b *Broker) handleReading(_ paho.Client, msg paho.Message) {
 	}
 	if err := json.Unmarshal(msg.Payload(), &payload); err != nil {
 		log.Printf("mqtt: bad reading payload from %s: %v", deviceID, err)
+		return
+	}
+	if !payload.Metric.Valid() {
+		log.Printf("mqtt: reading from %s rejected: invalid metric %q", deviceID, payload.Metric)
+		return
+	}
+	if err := validation.ReadingValue(payload.Value); err != nil {
+		log.Printf("mqtt: reading from %s rejected: %v", deviceID, err)
+		return
+	}
+	if err := validation.Unit(payload.Unit); err != nil {
+		log.Printf("mqtt: reading from %s rejected: %v", deviceID, err)
 		return
 	}
 

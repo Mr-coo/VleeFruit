@@ -5,6 +5,7 @@ import (
 
 	"github.com/Mr-coo/VleeFruit/backend/internal/domain"
 	"github.com/Mr-coo/VleeFruit/backend/internal/service"
+	"github.com/Mr-coo/VleeFruit/backend/internal/validation"
 	"github.com/gin-gonic/gin"
 )
 
@@ -28,6 +29,14 @@ func (h *DeviceHandler) Provision(c *gin.Context) {
 	var req provisionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if err := validation.DeviceID(req.DeviceID); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if !req.Kind.Valid() {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "kind must be one of: camera, gas, temperature, humidity"})
 		return
 	}
 
@@ -56,6 +65,10 @@ func (h *DeviceHandler) List(c *gin.Context) {
 // Revoke disables a device.
 func (h *DeviceHandler) Revoke(c *gin.Context) {
 	deviceID := c.Param("deviceID")
+	if err := validation.DeviceID(deviceID); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
 	if err := h.svc.Revoke(c.Request.Context(), deviceID); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -66,6 +79,10 @@ func (h *DeviceHandler) Revoke(c *gin.Context) {
 // RotateKey issues a fresh API key for a device and returns it once.
 func (h *DeviceHandler) RotateKey(c *gin.Context) {
 	deviceID := c.Param("deviceID")
+	if err := validation.DeviceID(deviceID); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
 	rawKey, err := h.svc.RotateKey(c.Request.Context(), deviceID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})

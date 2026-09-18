@@ -12,6 +12,16 @@ const (
 	DeviceKindHumidity    DeviceKind = "humidity"
 )
 
+// Valid reports whether k is one of the known device kinds.
+func (k DeviceKind) Valid() bool {
+	switch k {
+	case DeviceKindCamera, DeviceKindGas, DeviceKindTemperature, DeviceKindHumidity:
+		return true
+	default:
+		return false
+	}
+}
+
 // DeviceStatus controls whether a device may authenticate.
 type DeviceStatus string
 
