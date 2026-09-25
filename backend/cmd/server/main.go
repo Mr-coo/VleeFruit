@@ -2,10 +2,11 @@ package main
 
 import (
 	"log"
-	"os"
 
 	_ "github.com/Mr-coo/VleeFruit/backend/docs"
+	"github.com/Mr-coo/VleeFruit/backend/internal/config"
 	"github.com/Mr-coo/VleeFruit/backend/internal/controller"
+	"github.com/Mr-coo/VleeFruit/backend/internal/inference"
 	"github.com/Mr-coo/VleeFruit/backend/internal/router"
 	"github.com/joho/godotenv"
 )
@@ -18,21 +19,27 @@ func main() {
 	// Load .env if present; ignore the error so real env vars still work in Docker.
 	_ = godotenv.Load()
 
-	port := os.Getenv("BACKEND_PORT")
-	if port == "" {
-		port = "8080"
+	cfg := config.Load()
+
+	// AI model layer. In the default build this is a stub; with `-tags onnx`
+	// it loads the real ONNX model (if MODEL_PATH is set).
+	runner, err := inference.NewRunner(cfg.Inference)
+	if err != nil {
+		log.Fatalf("init inference runner: %v", err)
 	}
+	defer runner.Close()
 
 	// Controllers (HTTP handlers). Add more here and wire them in the router.
 	controllers := &controller.Controllers{
-		Health: controller.NewHealthController(),
-		Image:  controller.NewImageController(),
+		Health:    controller.NewHealthController(),
+		Image:     controller.NewImageController(),
+		Inference: controller.NewInferenceController(runner),
 	}
 
 	r := router.New(controllers)
 
-	log.Printf("server listening on :%s", port)
-	if err := r.Run(":" + port); err != nil {
+	log.Printf("server listening on :%s", cfg.Port)
+	if err := r.Run(":" + cfg.Port); err != nil {
 		log.Fatalf("server failed: %v", err)
 	}
 }

@@ -19,6 +19,7 @@ func New(c *controller.Controllers) *gin.Engine {
 	api := r.Group("/api/v1")
 	{
 		api.POST("/images", c.Image.Upload)
+		api.POST("/analyze", c.Inference.Analyze)
 	}
 
 	return r

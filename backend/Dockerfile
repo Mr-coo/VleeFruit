@@ -3,7 +3,7 @@
 ########################
 # Build stage
 ########################
-FROM golang:1.25-alpine AS builder
+FROM golang:1.26-alpine AS builder
 
 # Path to the main package to compile (override at build time if your
 # entrypoint lives elsewhere, e.g. --build-arg MAIN_PKG=./cmd/server).
