@@ -14,21 +14,27 @@ provides device management and read-only queries.
 
 ## 1. Run the stack
 
-Requires Docker + Docker Compose.
+Requires Docker + Docker Compose. Commands below are for Windows **PowerShell**
+(the cert step also needs `openssl` on your `PATH` — Git for Windows provides one).
+Note `curl.exe`: in Windows PowerShell, plain `curl` is an alias for
+`Invoke-WebRequest`, so the real curl must be called as `curl.exe`.
 
-```bash
+```powershell
 # 1. Generate dev TLS certs for the MQTT broker (one time)
-sh mosquitto/certs/gen-dev-certs.sh
+.\mosquitto\certs\gen-dev-certs.bat
 
-# 2. Copy env defaults (optional — Compose has fallbacks)
-cp .env.example .env
+# 2. Copy env defaults (optional -- Compose has fallbacks)
+Copy-Item .env.example .env
 
 # 3. Build and start everything
 docker compose up -d --build
 
 # 4. Confirm the backend is healthy
-curl http://localhost:8080/healthz
+curl.exe http://localhost:8080/healthz
 ```
+
+> On macOS/Linux, use `sh mosquitto/certs/gen-dev-certs.sh` and `cp .env.example .env`
+> for steps 1–2 instead; the rest are identical.
 
 `/healthz` returns `200` with `{"status":"ok","postgres":"up","redis":"up","storage":"up"}`
 when dependencies are reachable, otherwise `503` with the failing component.
@@ -63,12 +69,18 @@ when dependencies are reachable, otherwise `503` with the failing component.
 
 Creates a device and returns its API key **once** — store it immediately.
 
-```bash
-curl -X POST http://localhost:8080/api/v1/devices \
-  -H "Authorization: Bearer dev-admin-token" \
-  -H "Content-Type: application/json" \
-  -d '{"device_id":"dev1","name":"Cam 1","location":"cold room","kind":"camera"}'
+```powershell
+$resp = Invoke-RestMethod -Method Post -Uri http://localhost:8080/api/v1/devices `
+  -Headers @{ Authorization = "Bearer dev-admin-token" } `
+  -ContentType "application/json" `
+  -Body (@{ device_id = "dev1"; name = "Cam 1"; location = "cold room"; kind = "camera" } | ConvertTo-Json)
+$resp.api_key    # shown once — store it now
 ```
+
+> Use `Invoke-RestMethod` for any request with a JSON body. In Windows
+> PowerShell 5.1 a single-line `curl.exe -d '{...}'` gets truncated at the first
+> space inside the JSON (e.g. `"Cam 1"`). If you'd rather use `curl.exe`, put the
+> body in a file and pass `--data '@device.json'`.
 
 Request fields: `device_id` (required; letters/digits/`.`/`_`/`-`, ≤64 chars),
 `name`, `location`, `kind` (one of `camera`, `gas`, `temperature`, `humidity`).
@@ -101,23 +113,35 @@ broker requires auth on **both** ports, so always pass `-u <device_id> -P <api_k
 
 Subscribe to the result topic first, then publish the image:
 
-```bash
-# terminal A — watch results
+```powershell
+# terminal A -- watch results
 mqtt sub -h localhost -p 1883 -u dev1 -P "<api_key>" -t "devices/dev1/results" -v
 
-# terminal B — send a JPEG/PNG
-mqtt pub -h localhost -p 1883 -u dev1 -P "<api_key>" -t "devices/dev1/images" -f sample.jpg
+# terminal B -- send a JPEG/PNG (cmd /c does the stdin redirect; PowerShell can't)
+cmd /c "mqtt pub -h localhost -p 1883 -u dev1 -P <api_key> -t devices/dev1/images -s < sample.jpg"
 ```
 
+> **Why the `cmd /c` wrapper?** The image must be fed to the CLI over stdin
+> (`-s`), because the MQTT.js CLI has **no `-f`/file flag**. PowerShell disables
+> the `<` input redirector ("The '<' operator is reserved for future use") and
+> corrupts binary through its pipeline, so the reliable way is to let `cmd` do
+> the redirect. Passing `-f sample.jpg` (or `-s` without a redirect) publishes an
+> empty payload, which the backend rejects with `decode image: image: unknown format`.
+
 Over TLS instead, use port 8883 with the dev CA:
-`-h localhost -p 8883 --ca-file mosquitto/certs/ca.crt`.
+`-h localhost -p 8883 --ca-file mosquitto\certs\ca.crt`.
 
 ### Publish a sensor reading
 
-```bash
-mqtt pub -h localhost -p 1883 -u dev1 -P "<api_key>" -t "devices/dev1/readings" \
-  -m '{"metric":"temperature","value":4.5,"unit":"C"}'
+```powershell
+mqtt pub -h localhost -p 1883 -u dev1 -P "<api_key>" -t "devices/dev1/readings" `
+  -m '{\"metric\":\"temperature\",\"value\":4.5,\"unit\":\"C\"}'
 ```
+
+> The `\"` escaping is needed because PowerShell otherwise strips the inner
+> quotes before `mqtt` sees them. Keep the JSON free of spaces — a space makes
+> PowerShell truncate the argument. (Values here are numbers/short units, so
+> that's fine.)
 
 Reading payload (JSON):
 
@@ -170,10 +194,10 @@ The result published to `devices/{id}/results` (and stored per image):
 All read-only, behind the admin bearer token. `?limit=N` defaults to `50`, capped
 at `500`.
 
-```bash
-curl http://localhost:8080/api/v1/detections -H "Authorization: Bearer dev-admin-token"
-curl http://localhost:8080/api/v1/images?limit=100 -H "Authorization: Bearer dev-admin-token"
-curl http://localhost:8080/api/v1/readings -H "Authorization: Bearer dev-admin-token"
+```powershell
+curl.exe http://localhost:8080/api/v1/detections -H "Authorization: Bearer dev-admin-token"
+curl.exe "http://localhost:8080/api/v1/images?limit=100" -H "Authorization: Bearer dev-admin-token"
+curl.exe http://localhost:8080/api/v1/readings -H "Authorization: Bearer dev-admin-token"
 ```
 
 You can also browse the tables directly in **Adminer** (`http://localhost:8081`,
