@@ -6,12 +6,8 @@ import (
 	"image"
 )
 
-// ErrUnavailable is returned when the binary was built without the "onnx" tag,
-// so no real inference backend is compiled in.
-var ErrUnavailable = errors.New("onnx inference not available in this build (rebuild with -tags onnx and CGO enabled)")
-
-// ErrModelNotConfigured is returned when the onnx backend is compiled in but no
-// model path was provided.
+// ErrModelNotConfigured is returned when no model path was provided, so the
+// server runs but inference is disabled.
 var ErrModelNotConfigured = errors.New("no model configured (set MODEL_PATH)")
 
 // Config configures the inference runner.

@@ -32,8 +32,8 @@ paths:
             additionalProperties:
               type: string
             type: object
-        "501":
-          description: Not Implemented
+        "503":
+          description: Service Unavailable
           schema:
             additionalProperties:
               type: string

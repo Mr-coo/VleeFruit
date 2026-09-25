@@ -54,8 +54,8 @@ const docTemplate = `{
                             }
                         }
                     },
-                    "501": {
-                        "description": "Not Implemented",
+                    "503": {
+                        "description": "Service Unavailable",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {

@@ -3,11 +3,21 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
+      args:
+        ORT_VERSION: ${ORT_VERSION:-1.20.1}
     image: vleefruit-backend:latest
     restart: unless-stopped
     ports:
       - "${BACKEND_PORT:-8080}:8080"
+    volumes:
+      # Mount your exported model here; MODEL_PATH points at it below.
+      - ./backend/models:/app/models:ro
     environment:
+      # AI model (in-process ONNX). libonnxruntime.so path is baked into the image.
+      MODEL_PATH: ${MODEL_PATH:-/app/models/model.onnx}
+      MODEL_INPUT_NAME: ${MODEL_INPUT_NAME:-images}
+      MODEL_OUTPUT_NAME: ${MODEL_OUTPUT_NAME:-output0}
+      MODEL_INPUT_SIZE: ${MODEL_INPUT_SIZE:-640}
       # Postgres (matches gorm.io/driver/postgres DSN pieces)
       DB_HOST: postgres
       DB_PORT: "5432"

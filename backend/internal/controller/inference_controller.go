@@ -29,7 +29,7 @@ func NewInferenceController(runner inference.Runner) *InferenceController {
 // @Param        image  formData  file  true  "Image file to analyze"
 // @Success      200    {object}  map[string]interface{}
 // @Failure      400    {object}  map[string]string
-// @Failure      501    {object}  map[string]string
+// @Failure      503    {object}  map[string]string
 // @Router       /api/v1/analyze [post]
 func (ic *InferenceController) Analyze(c *gin.Context) {
 	fileHeader, err := c.FormFile("image")
@@ -53,8 +53,8 @@ func (ic *InferenceController) Analyze(c *gin.Context) {
 
 	out, err := ic.runner.Infer(c.Request.Context(), img)
 	if err != nil {
-		if errors.Is(err, inference.ErrUnavailable) || errors.Is(err, inference.ErrModelNotConfigured) {
-			c.JSON(http.StatusNotImplemented, gin.H{"error": err.Error()})
+		if errors.Is(err, inference.ErrModelNotConfigured) {
+			c.JSON(http.StatusServiceUnavailable, gin.H{"error": err.Error()})
 			return
 		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
