@@ -13,16 +13,32 @@ import (
 
 // InferenceController runs the AI model on an uploaded image.
 type InferenceController struct {
-	runner inference.Runner
+	detector *inference.Detector
 }
 
-func NewInferenceController(runner inference.Runner) *InferenceController {
-	return &InferenceController{runner: runner}
+func NewInferenceController(detector *inference.Detector) *InferenceController {
+	return &InferenceController{detector: detector}
 }
 
-// Analyze runs the model on a single uploaded image.
-// @Summary      Run model inference on an image
-// @Description  Accepts a single image (jpeg/png) and runs the ONNX model, returning the raw output tensor shape. Model-specific decoding (boxes, ripeness, defects) is applied by the service layer.
+type boxDTO struct {
+	X1     float32 `json:"x1"`
+	Y1     float32 `json:"y1"`
+	X2     float32 `json:"x2"`
+	Y2     float32 `json:"y2"`
+	Width  float32 `json:"width_px"`
+	Height float32 `json:"height_px"`
+}
+
+type detectionDTO struct {
+	Label      string  `json:"label"`
+	ClassID    int     `json:"class_id"`
+	Confidence float32 `json:"confidence"`
+	Box        boxDTO  `json:"box"`
+}
+
+// Analyze runs the model on a single uploaded image and returns detections.
+// @Summary      Detect fruit ripeness in an image
+// @Description  Accepts a single image (jpeg/png), runs the YOLO model, and returns decoded detections (ripeness label, confidence, and bounding box in original-image pixels).
 // @Tags         inference
 // @Accept       multipart/form-data
 // @Produce      json
@@ -51,7 +67,7 @@ func (ic *InferenceController) Analyze(c *gin.Context) {
 		return
 	}
 
-	out, err := ic.runner.Infer(c.Request.Context(), img)
+	dets, err := ic.detector.Detect(c.Request.Context(), img)
 	if err != nil {
 		if errors.Is(err, inference.ErrModelNotConfigured) {
 			c.JSON(http.StatusServiceUnavailable, gin.H{"error": err.Error()})
@@ -61,8 +77,21 @@ func (ic *InferenceController) Analyze(c *gin.Context) {
 		return
 	}
 
+	out := make([]detectionDTO, 0, len(dets))
+	for _, d := range dets {
+		out = append(out, detectionDTO{
+			Label:      d.Label,
+			ClassID:    d.ClassID,
+			Confidence: d.Confidence,
+			Box: boxDTO{
+				X1: d.Box.X1, Y1: d.Box.Y1, X2: d.Box.X2, Y2: d.Box.Y2,
+				Width: d.Box.Width(), Height: d.Box.Height(),
+			},
+		})
+	}
+
 	c.JSON(http.StatusOK, gin.H{
-		"output_shape": out.Shape,
-		"output_len":   len(out.Data),
+		"count":      len(out),
+		"detections": out,
 	})
 }

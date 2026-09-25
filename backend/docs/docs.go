@@ -17,7 +17,7 @@ const docTemplate = `{
     "paths": {
         "/api/v1/analyze": {
             "post": {
-                "description": "Accepts a single image (jpeg/png) and runs the ONNX model, returning the raw output tensor shape. Model-specific decoding (boxes, ripeness, defects) is applied by the service layer.",
+                "description": "Accepts a single image (jpeg/png), runs the YOLO model, and returns decoded detections (ripeness label, confidence, and bounding box in original-image pixels).",
                 "consumes": [
                     "multipart/form-data"
                 ],
@@ -27,7 +27,7 @@ const docTemplate = `{
                 "tags": [
                     "inference"
                 ],
-                "summary": "Run model inference on an image",
+                "summary": "Detect fruit ripeness in an image",
                 "parameters": [
                     {
                         "type": "file",

@@ -3,7 +3,6 @@ package inference
 import (
 	"context"
 	"fmt"
-	"image"
 	"log"
 	"os"
 	"sync"
@@ -33,21 +32,17 @@ type onnxRunner struct {
 	mu      sync.Mutex // ORT sessions are not guaranteed re-entrant; serialize Run.
 }
 
-// NewRunner (onnx build) loads the model into a reusable session. An empty
-// ModelPath yields a disabled runner so the server still starts.
+// NewRunner loads the model into a reusable session. A missing/empty ModelPath
+// yields a disabled runner so the server still starts.
 func NewRunner(cfg Config) (Runner, error) {
 	if cfg.ModelPath == "" {
-		log.Printf("inference: no MODEL_PATH set; /analyze disabled")
+		log.Printf("inference: no MODEL_PATH set; inference disabled")
 		return disabledRunner{err: ErrModelNotConfigured}, nil
 	}
 	if _, err := os.Stat(cfg.ModelPath); err != nil {
-		// Model path is set but the file is missing: start with inference
-		// disabled rather than crashing, so the rest of the API stays up.
-		log.Printf("inference: model %q not found; /analyze disabled until it exists", cfg.ModelPath)
+		// Model path set but file missing: start disabled rather than crashing.
+		log.Printf("inference: model %q not found; inference disabled until it exists", cfg.ModelPath)
 		return disabledRunner{err: ErrModelNotConfigured}, nil
-	}
-	if cfg.InputSize == 0 {
-		cfg.InputSize = 640
 	}
 	if cfg.InputName == "" {
 		cfg.InputName = "images"
@@ -70,14 +65,17 @@ func NewRunner(cfg Config) (Runner, error) {
 		return nil, fmt.Errorf("load model %q: %w", cfg.ModelPath, err)
 	}
 
+	log.Printf("inference: loaded model %q", cfg.ModelPath)
 	return &onnxRunner{cfg: cfg, session: session}, nil
 }
 
-func (r *onnxRunner) Infer(_ context.Context, img image.Image) (*Output, error) {
-	pp := Preprocess(img, r.cfg.InputSize)
+func (r *onnxRunner) Run(_ context.Context, input []float32, size int) (*Output, error) {
+	if len(input) != 3*size*size {
+		return nil, fmt.Errorf("input len %d != 3*%d*%d", len(input), size, size)
+	}
 
-	inputShape := ort.NewShape(1, 3, int64(r.cfg.InputSize), int64(r.cfg.InputSize))
-	inputTensor, err := ort.NewTensor(inputShape, pp.Data)
+	inputShape := ort.NewShape(1, 3, int64(size), int64(size))
+	inputTensor, err := ort.NewTensor(inputShape, input)
 	if err != nil {
 		return nil, fmt.Errorf("create input tensor: %w", err)
 	}

@@ -3,16 +3,15 @@ package inference
 import (
 	"context"
 	"errors"
-	"image"
 )
 
-// ErrModelNotConfigured is returned when no model path was provided, so the
+// ErrModelNotConfigured is returned when no model file is available, so the
 // server runs but inference is disabled.
-var ErrModelNotConfigured = errors.New("no model configured (set MODEL_PATH)")
+var ErrModelNotConfigured = errors.New("no model configured (set MODEL_PATH to an existing .onnx file)")
 
-// Config configures the inference runner.
+// Config configures the inference stack.
 type Config struct {
-	// ModelPath is the path to the .onnx model file. Empty disables inference.
+	// ModelPath is the path to the .onnx model file. Empty/missing disables inference.
 	ModelPath string
 	// SharedLibPath is the path to libonnxruntime.so / onnxruntime.dll.
 	SharedLibPath string
@@ -21,29 +20,32 @@ type Config struct {
 	OutputName string
 	// InputSize is the square input dimension (e.g. 640).
 	InputSize int
+	// Labels maps class IDs (in training order) to human labels.
+	Labels []string
+	// ConfThreshold / IoUThreshold tune decoding and NMS.
+	ConfThreshold float32
+	IoUThreshold  float32
 }
 
 // Output is the raw model output: a flat float32 buffer plus its shape.
-// Decoding it (e.g. YOLO box decode + NMS) is model-specific and done by the
-// caller/service layer.
 type Output struct {
 	Data  []float32
 	Shape []int64
 }
 
-// Runner runs a model over a decoded image. Implementations are selected at
-// build time via the "onnx" tag.
+// Runner runs a model on an already-preprocessed NCHW tensor and returns the
+// raw output. Implementations are backed by the ONNX Runtime (cgo).
 type Runner interface {
-	Infer(ctx context.Context, img image.Image) (*Output, error)
+	// Run executes the model on input (len == 3*size*size, NCHW float32).
+	Run(ctx context.Context, input []float32, size int) (*Output, error)
 	Close() error
 }
 
-// disabledRunner is used when inference is unavailable or no model is set. It
-// lets the server start and serve every other route; the inference endpoint
-// returns a clear error.
+// disabledRunner is used when no model is available. It lets the server start
+// and serve every other route; inference calls return a clear error.
 type disabledRunner struct{ err error }
 
-func (d disabledRunner) Infer(context.Context, image.Image) (*Output, error) {
+func (d disabledRunner) Run(context.Context, []float32, int) (*Output, error) {
 	return nil, d.err
 }
 

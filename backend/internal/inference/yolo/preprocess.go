@@ -1,4 +1,6 @@
-package inference
+// Package yolo holds pure-Go image preprocessing and YOLO output decoding.
+// It has no cgo dependency, so it is unit-testable without a C compiler.
+package yolo
 
 import (
 	"image"
@@ -9,8 +11,7 @@ import (
 )
 
 // PreprocessResult holds the model input tensor plus the letterbox geometry,
-// which is needed later to map model output coordinates back to the original
-// image (postprocessing is model-specific and left to the caller).
+// which is needed to map model output coordinates back to the original image.
 type PreprocessResult struct {
 	// Data is the normalized input tensor in NCHW order (1x3xSizexSize), RGB,
 	// values scaled to [0,1].
@@ -24,8 +25,8 @@ type PreprocessResult struct {
 }
 
 // Preprocess letterboxes img into a SizexSize square (preserving aspect ratio,
-// padding with gray 114) and converts it to a normalized NCHW float32 tensor.
-// This matches the standard YOLO input convention.
+// padding with gray 114) and converts it to a normalized NCHW float32 tensor,
+// matching the standard YOLO input convention.
 func Preprocess(img image.Image, size int) PreprocessResult {
 	b := img.Bounds()
 	srcW, srcH := b.Dx(), b.Dy()

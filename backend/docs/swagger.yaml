@@ -9,9 +9,9 @@ paths:
     post:
       consumes:
       - multipart/form-data
-      description: Accepts a single image (jpeg/png) and runs the ONNX model, returning
-        the raw output tensor shape. Model-specific decoding (boxes, ripeness, defects)
-        is applied by the service layer.
+      description: Accepts a single image (jpeg/png), runs the YOLO model, and returns
+        decoded detections (ripeness label, confidence, and bounding box in original-image
+        pixels).
       parameters:
       - description: Image file to analyze
         in: formData
@@ -38,7 +38,7 @@ paths:
             additionalProperties:
               type: string
             type: object
-      summary: Run model inference on an image
+      summary: Detect fruit ripeness in an image
       tags:
       - inference
   /api/v1/images:

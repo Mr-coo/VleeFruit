@@ -27,13 +27,14 @@ func main() {
 	if err != nil {
 		log.Fatalf("init inference runner: %v", err)
 	}
-	defer runner.Close()
+	detector := inference.NewDetector(runner, cfg.Inference)
+	defer detector.Close()
 
 	// Controllers (HTTP handlers). Add more here and wire them in the router.
 	controllers := &controller.Controllers{
 		Health:    controller.NewHealthController(),
 		Image:     controller.NewImageController(),
-		Inference: controller.NewInferenceController(runner),
+		Inference: controller.NewInferenceController(detector),
 	}
 
 	r := router.New(controllers)
