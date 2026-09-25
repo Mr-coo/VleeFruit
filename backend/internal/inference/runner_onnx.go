@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"image"
+	"log"
+	"os"
 	"sync"
 
 	ort "github.com/yalue/onnxruntime_go"
@@ -35,6 +37,13 @@ type onnxRunner struct {
 // ModelPath yields a disabled runner so the server still starts.
 func NewRunner(cfg Config) (Runner, error) {
 	if cfg.ModelPath == "" {
+		log.Printf("inference: no MODEL_PATH set; /analyze disabled")
+		return disabledRunner{err: ErrModelNotConfigured}, nil
+	}
+	if _, err := os.Stat(cfg.ModelPath); err != nil {
+		// Model path is set but the file is missing: start with inference
+		// disabled rather than crashing, so the rest of the API stays up.
+		log.Printf("inference: model %q not found; /analyze disabled until it exists", cfg.ModelPath)
 		return disabledRunner{err: ErrModelNotConfigured}, nil
 	}
 	if cfg.InputSize == 0 {
