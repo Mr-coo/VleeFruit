@@ -4,11 +4,16 @@ import (
 	"log"
 	"os"
 
+	_ "github.com/Mr-coo/VleeFruit/backend/docs"
 	"github.com/Mr-coo/VleeFruit/backend/internal/controller"
 	"github.com/Mr-coo/VleeFruit/backend/internal/router"
 	"github.com/joho/godotenv"
 )
 
+// @title           VleeFruit API
+// @version         1.0
+// @description     Backend API for the VleeFruit fruit image analysis service.
+// @BasePath        /
 func main() {
 	// Load .env if present; ignore the error so real env vars still work in Docker.
 	_ = godotenv.Load()

@@ -1,0 +1,23 @@
+basePath: /
+info:
+  contact: {}
+  description: Backend API for the VleeFruit fruit image analysis service.
+  title: VleeFruit API
+  version: "1.0"
+paths:
+  /healthz:
+    get:
+      description: Returns the service liveness status.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Health check
+      tags:
+      - health
+swagger: "2.0"
