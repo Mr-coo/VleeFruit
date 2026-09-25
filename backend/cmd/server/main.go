@@ -26,6 +26,7 @@ func main() {
 	// Controllers (HTTP handlers). Add more here and wire them in the router.
 	controllers := &controller.Controllers{
 		Health: controller.NewHealthController(),
+		Image:  controller.NewImageController(),
 	}
 
 	r := router.New(controllers)

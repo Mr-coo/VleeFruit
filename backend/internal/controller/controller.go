@@ -4,4 +4,5 @@ package controller
 // Add new controllers here as the API grows.
 type Controllers struct {
 	Health *HealthController
+	Image  *ImageController
 }

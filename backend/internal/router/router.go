@@ -18,9 +18,7 @@ func New(c *controller.Controllers) *gin.Engine {
 
 	api := r.Group("/api/v1")
 	{
-		// Register feature routes here, e.g.:
-		// api.POST("/analyze", c.Analysis.Analyze)
-		_ = api
+		api.POST("/images", c.Image.Upload)
 	}
 
 	return r

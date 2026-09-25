@@ -5,6 +5,35 @@ info:
   title: VleeFruit API
   version: "1.0"
 paths:
+  /api/v1/images:
+    post:
+      consumes:
+      - multipart/form-data
+      description: Accepts a single image file (jpeg, png or webp) in the "image"
+        form field.
+      parameters:
+      - description: Image file to upload
+        in: formData
+        name: image
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Upload an image
+      tags:
+      - images
   /healthz:
     get:
       description: Returns the service liveness status.
