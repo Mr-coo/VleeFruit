@@ -37,7 +37,7 @@ func main() {
 
 	// MQTT layer, running alongside the HTTP server. Disabled when
 	// MQTT_BROKER_URL is unset.
-	mqttClient := mqtt.NewClient(cfg.MQTT)
+	mqttClient := mqtt.NewClient(cfg.MQTT, llmClient)
 	if err := mqttClient.Start(); err != nil {
 		log.Fatalf("start mqtt: %v", err)
 	}

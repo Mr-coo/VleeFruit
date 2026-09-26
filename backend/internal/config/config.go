@@ -41,13 +41,15 @@ func Load() Config {
 			Timeout: time.Duration(getenvInt("GEMINI_TIMEOUT_SECONDS", 30)) * time.Second,
 		},
 		MQTT: mqtt.Config{
-			BrokerURL:     os.Getenv("MQTT_BROKER_URL"),
-			ClientID:      getenv("MQTT_CLIENT_ID", "vleefruit-backend"),
-			Username:      os.Getenv("MQTT_USERNAME"),
-			Password:      os.Getenv("MQTT_PASSWORD"),
-			RequestTopic:  getenv("MQTT_REQUEST_TOPIC", "vleefruit/request"),
-			ResponseTopic: getenv("MQTT_RESPONSE_TOPIC", "vleefruit/response"),
-			QoS:           byte(getenvInt("MQTT_QOS", 0)),
+			BrokerURL:          os.Getenv("MQTT_BROKER_URL"),
+			ClientID:           getenv("MQTT_CLIENT_ID", "vleefruit-backend"),
+			Username:           os.Getenv("MQTT_USERNAME"),
+			Password:           os.Getenv("MQTT_PASSWORD"),
+			RequestTopic:       getenv("MQTT_REQUEST_TOPIC", "vleefruit/request"),
+			ResponseTopic:      getenv("MQTT_RESPONSE_TOPIC", "vleefruit/response"),
+			ImageRequestTopic:  getenv("MQTT_IMAGE_REQUEST_TOPIC", "vleefruit/image/request"),
+			ImageResponseTopic: getenv("MQTT_IMAGE_RESPONSE_TOPIC", "vleefruit/image/response"),
+			QoS:                byte(getenvInt("MQTT_QOS", 0)),
 		},
 	}
 }

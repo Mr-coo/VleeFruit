@@ -31,6 +31,8 @@ services:
       MQTT_PASSWORD: ${MQTT_PASSWORD:-}
       MQTT_REQUEST_TOPIC: ${MQTT_REQUEST_TOPIC:-vleefruit/request}
       MQTT_RESPONSE_TOPIC: ${MQTT_RESPONSE_TOPIC:-vleefruit/response}
+      MQTT_IMAGE_REQUEST_TOPIC: ${MQTT_IMAGE_REQUEST_TOPIC:-vleefruit/image/request}
+      MQTT_IMAGE_RESPONSE_TOPIC: ${MQTT_IMAGE_RESPONSE_TOPIC:-vleefruit/image/response}
       MQTT_QOS: ${MQTT_QOS:-0}
       # Postgres (matches gorm.io/driver/postgres DSN pieces)
       DB_HOST: postgres
