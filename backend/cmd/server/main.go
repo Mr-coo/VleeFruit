@@ -7,6 +7,7 @@ import (
 	"github.com/Mr-coo/VleeFruit/backend/internal/config"
 	"github.com/Mr-coo/VleeFruit/backend/internal/controller"
 	"github.com/Mr-coo/VleeFruit/backend/internal/inference"
+	"github.com/Mr-coo/VleeFruit/backend/internal/llm"
 	"github.com/Mr-coo/VleeFruit/backend/internal/router"
 	"github.com/joho/godotenv"
 )
@@ -30,10 +31,13 @@ func main() {
 	detector := inference.NewDetector(runner, cfg.Inference)
 	defer detector.Close()
 
+	// Vision LLM layer (Gemini). Disabled when GEMINI_API_KEY is unset.
+	llmClient := llm.NewClient(cfg.LLM)
+
 	// Controllers (HTTP handlers). Add more here and wire them in the router.
 	controllers := &controller.Controllers{
 		Health:    controller.NewHealthController(),
-		Image:     controller.NewImageController(),
+		Image:     controller.NewImageController(llmClient),
 		Inference: controller.NewInferenceController(detector),
 	}
 

@@ -18,6 +18,11 @@ services:
       MODEL_INPUT_NAME: ${MODEL_INPUT_NAME:-images}
       MODEL_OUTPUT_NAME: ${MODEL_OUTPUT_NAME:-output0}
       MODEL_INPUT_SIZE: ${MODEL_INPUT_SIZE:-640}
+      # Vision LLM (Google Gemini) for POST /api/v1/images.
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.0-flash}
+      GEMINI_TIMEOUT_SECONDS: ${GEMINI_TIMEOUT_SECONDS:-30}
+      GEMINI_PROMPT: ${GEMINI_PROMPT:-}
       # Postgres (matches gorm.io/driver/postgres DSN pieces)
       DB_HOST: postgres
       DB_PORT: "5432"

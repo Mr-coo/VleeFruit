@@ -4,14 +4,17 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/Mr-coo/VleeFruit/backend/internal/inference"
+	"github.com/Mr-coo/VleeFruit/backend/internal/llm"
 )
 
 // Config holds runtime configuration loaded from environment variables.
 type Config struct {
 	Port      string
 	Inference inference.Config
+	LLM       llm.Config
 }
 
 // Load reads configuration from the environment, applying sensible defaults.
@@ -28,6 +31,12 @@ func Load() Config {
 			Labels:        getenvList("MODEL_LABELS", []string{"unripe", "ripe", "overripe"}),
 			ConfThreshold: getenvFloat("MODEL_CONF_THRESHOLD", 0.25),
 			IoUThreshold:  getenvFloat("MODEL_IOU_THRESHOLD", 0.45),
+		},
+		LLM: llm.Config{
+			APIKey:  os.Getenv("GEMINI_API_KEY"),
+			Model:   getenv("GEMINI_MODEL", "gemini-2.0-flash"),
+			Prompt:  os.Getenv("GEMINI_PROMPT"),
+			Timeout: time.Duration(getenvInt("GEMINI_TIMEOUT_SECONDS", 30)) * time.Second,
 		},
 	}
 }
