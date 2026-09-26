@@ -23,6 +23,15 @@ services:
       GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.0-flash}
       GEMINI_TIMEOUT_SECONDS: ${GEMINI_TIMEOUT_SECONDS:-30}
       GEMINI_PROMPT: ${GEMINI_PROMPT:-}
+      # MQTT layer (runs alongside the HTTP server). Points at the local broker
+      # below by default; set MQTT_BROKER_URL empty to disable.
+      MQTT_BROKER_URL: ${MQTT_BROKER_URL:-tcp://mqtt:1883}
+      MQTT_CLIENT_ID: ${MQTT_CLIENT_ID:-vleefruit-backend}
+      MQTT_USERNAME: ${MQTT_USERNAME:-}
+      MQTT_PASSWORD: ${MQTT_PASSWORD:-}
+      MQTT_REQUEST_TOPIC: ${MQTT_REQUEST_TOPIC:-vleefruit/request}
+      MQTT_RESPONSE_TOPIC: ${MQTT_RESPONSE_TOPIC:-vleefruit/response}
+      MQTT_QOS: ${MQTT_QOS:-0}
       # Postgres (matches gorm.io/driver/postgres DSN pieces)
       DB_HOST: postgres
       DB_PORT: "5432"
@@ -50,6 +59,24 @@ services:
         condition: service_healthy
       minio:
         condition: service_healthy
+      mqtt:
+        condition: service_healthy
+    networks:
+      - vleefruit
+
+  mqtt:
+    image: eclipse-mosquitto:2
+    restart: unless-stopped
+    ports:
+      - "${MQTT_PORT:-1883}:1883"
+    volumes:
+      - ./mqtt/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - mqtt_data:/mosquitto/data
+    healthcheck:
+      test: ["CMD-SHELL", "mosquitto_sub -t '$$SYS/#' -C 1 -W 3 -q 0 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     networks:
       - vleefruit
 
@@ -128,6 +155,7 @@ volumes:
   postgres_data:
   redis_data:
   minio_data:
+  mqtt_data:
 
 networks:
   vleefruit:

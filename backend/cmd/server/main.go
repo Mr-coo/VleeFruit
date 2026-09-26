@@ -8,6 +8,7 @@ import (
 	"github.com/Mr-coo/VleeFruit/backend/internal/controller"
 	"github.com/Mr-coo/VleeFruit/backend/internal/inference"
 	"github.com/Mr-coo/VleeFruit/backend/internal/llm"
+	"github.com/Mr-coo/VleeFruit/backend/internal/mqtt"
 	"github.com/Mr-coo/VleeFruit/backend/internal/router"
 	"github.com/joho/godotenv"
 )
@@ -33,6 +34,14 @@ func main() {
 
 	// Vision LLM layer (Gemini). Disabled when GEMINI_API_KEY is unset.
 	llmClient := llm.NewClient(cfg.LLM)
+
+	// MQTT layer, running alongside the HTTP server. Disabled when
+	// MQTT_BROKER_URL is unset.
+	mqttClient := mqtt.NewClient(cfg.MQTT)
+	if err := mqttClient.Start(); err != nil {
+		log.Fatalf("start mqtt: %v", err)
+	}
+	defer mqttClient.Stop()
 
 	// Controllers (HTTP handlers). Add more here and wire them in the router.
 	controllers := &controller.Controllers{
