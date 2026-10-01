@@ -34,33 +34,7 @@ services:
       MQTT_IMAGE_REQUEST_TOPIC: ${MQTT_IMAGE_REQUEST_TOPIC:-vleefruit/image/request}
       MQTT_IMAGE_RESPONSE_TOPIC: ${MQTT_IMAGE_RESPONSE_TOPIC:-vleefruit/image/response}
       MQTT_QOS: ${MQTT_QOS:-0}
-      # Postgres (matches gorm.io/driver/postgres DSN pieces)
-      DB_HOST: postgres
-      DB_PORT: "5432"
-      DB_USER: ${POSTGRES_USER:-vleefruit}
-      DB_PASSWORD: ${POSTGRES_PASSWORD:-vleefruit}
-      DB_NAME: ${POSTGRES_DB:-vleefruit}
-      DB_SSLMODE: disable
-      DATABASE_URL: postgres://${POSTGRES_USER:-vleefruit}:${POSTGRES_PASSWORD:-vleefruit}@postgres:5432/${POSTGRES_DB:-vleefruit}?sslmode=disable
-      # Redis (matches redis/go-redis)
-      REDIS_ADDR: redis:6379
-      REDIS_PASSWORD: ""
-      REDIS_DB: "0"
-      # Object storage (S3-compatible: MinIO locally, swap for R2 in prod)
-      S3_ENDPOINT: http://minio:9000
-      S3_REGION: ${S3_REGION:-us-east-1}
-      S3_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
-      S3_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin}
-      S3_BUCKET: ${S3_BUCKET:-fruit-images}
-      S3_USE_SSL: "false"
-      S3_FORCE_PATH_STYLE: "true"
     depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-      minio:
-        condition: service_healthy
       mqtt:
         condition: service_healthy
     networks:
@@ -82,81 +56,7 @@ services:
     networks:
       - vleefruit
 
-  postgres:
-    image: postgres:17-alpine
-    restart: unless-stopped
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER:-vleefruit}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-vleefruit}
-      POSTGRES_DB: ${POSTGRES_DB:-vleefruit}
-    ports:
-      - "${POSTGRES_PORT:-5432}:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-vleefruit} -d ${POSTGRES_DB:-vleefruit}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    networks:
-      - vleefruit
-
-  redis:
-    image: redis:7-alpine
-    restart: unless-stopped
-    command: ["redis-server", "--appendonly", "yes"]
-    ports:
-      - "${REDIS_PORT:-6379}:6379"
-    volumes:
-      - redis_data:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    networks:
-      - vleefruit
-
-  minio:
-    image: minio/minio:latest
-    restart: unless-stopped
-    command: ["server", "/data", "--console-address", ":9001"]
-    environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
-    ports:
-      - "${MINIO_API_PORT:-9000}:9000"      # S3 API
-      - "${MINIO_CONSOLE_PORT:-9001}:9001"  # Web console
-    volumes:
-      - minio_data:/data
-    healthcheck:
-      test: ["CMD", "mc", "ready", "local"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    networks:
-      - vleefruit
-
-  # One-shot: waits for MinIO, then creates the bucket if it does not exist.
-  minio-init:
-    image: minio/mc:latest
-    depends_on:
-      minio:
-        condition: service_healthy
-    entrypoint: >
-      /bin/sh -c "
-      mc alias set local http://minio:9000 ${MINIO_ROOT_USER:-minioadmin} ${MINIO_ROOT_PASSWORD:-minioadmin} &&
-      mc mb --ignore-existing local/${S3_BUCKET:-fruit-images} &&
-      echo 'Bucket ${S3_BUCKET:-fruit-images} ready';
-      "
-    restart: "no"
-    networks:
-      - vleefruit
-
 volumes:
-  postgres_data:
-  redis_data:
-  minio_data:
   mqtt_data:
 
 networks:

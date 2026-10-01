@@ -1,0 +1,52 @@
+name: Deploy
+
+# Deploys by SSHing into the VPS, pulling the latest main, and rebuilding the
+# stack in place with docker compose. Runs after a push to main (typically a
+# merged PR) and can also be triggered manually from the Actions tab.
+#
+# Required repository secrets (Settings -> Secrets and variables -> Actions):
+#   VPS_HOST     - server hostname or IP
+#   VPS_USER     - SSH user (must be able to run docker)
+#   VPS_SSH_KEY  - private key for that user (the matching public key is in
+#                  the server's ~/.ssh/authorized_keys)
+#   VPS_APP_DIR  - absolute path to the cloned repo on the VPS
+# Optional:
+#   VPS_PORT     - SSH port (defaults to 22)
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Build & restart on VPS
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy over SSH
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT || 22 }}
+          script_stop: true
+          script: |
+            set -euo pipefail
+            cd "${{ secrets.VPS_APP_DIR }}"
+            # Sync working tree to the just-pushed commit. Untracked files
+            # (./backend/models, .env, mqtt certs) are preserved.
+            git fetch --prune origin main
+            git reset --hard origin/main
+            # Rebuild only what changed and restart, with no downtime gap
+            # beyond the container swap.
+            docker compose up -d --build --remove-orphans
+            # Reclaim space from dangling build layers.
+            docker image prune -f
+            docker compose ps
