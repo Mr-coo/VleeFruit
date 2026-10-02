@@ -1,7 +1,8 @@
 # Deployment (VPS, build-on-server)
 
-The backend is deployed by GitHub Actions over SSH: on every push to `main`,
-the workflow logs into the VPS, pulls the latest commit, and rebuilds the stack
+The backend is deployed by GitHub Actions over SSH: after the CI workflow
+passes on a push to `main`, the deploy workflow logs into the VPS, checks out
+the tested commit, and rebuilds the stack
 with `docker compose up -d --build`. The VPS builds the image itself — no
 container registry is involved.
 
@@ -63,8 +64,9 @@ ssh-keygen -t ed25519 -f deploy_key -N "" -C "github-actions-deploy"
 ## 3. How a deploy runs
 
 1. You merge a PR into `main` (or click **Run workflow** on the Deploy action).
-2. Actions SSHes in, `git reset --hard origin/main`, `docker compose up -d --build`.
-3. Only changed layers rebuild; the backend container is swapped and MQTT stays up.
+2. CI runs. If it fails, nothing is deployed.
+3. On CI success, Actions SSHes in, `git reset --hard <tested sha>`, `docker compose up -d --build`.
+4. Only changed layers rebuild; the backend container is swapped and MQTT stays up.
 
 ## Notes
 
@@ -73,4 +75,5 @@ ssh-keygen -t ed25519 -f deploy_key -N "" -C "github-actions-deploy"
 - **Services:** only `backend` + `mqtt` run. Postgres/Redis/MinIO were removed —
   the current app doesn't use them. Re-add them here if that changes.
 - **CI gate:** `ci.yml` builds, vets and tests the Go module and verifies the
-  Docker image builds on every push/PR. It does not deploy.
+  Docker image builds on every push/PR. The deploy is triggered by CI
+  succeeding on `main` (`workflow_run`), so a red CI blocks the deploy.

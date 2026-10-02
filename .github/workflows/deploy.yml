@@ -1,8 +1,10 @@
 name: Deploy
 
-# Deploys by SSHing into the VPS, pulling the latest main, and rebuilding the
-# stack in place with docker compose. Runs after a push to main (typically a
-# merged PR) and can also be triggered manually from the Actions tab.
+# Deploys by SSHing into the VPS, checking out the tested commit, and
+# rebuilding the stack in place with docker compose. Runs only after the CI
+# workflow succeeds for a push to main (typically a merged PR), so a failing
+# build/test never deploys. Can also be triggered manually from the Actions tab
+# (deploys the current origin/main).
 #
 # Required repository secrets (Settings -> Secrets and variables -> Actions):
 #   VPS_HOST     - server hostname or IP
@@ -13,12 +15,14 @@ name: Deploy
 # Optional:
 #   VPS_PORT     - SSH port (defaults to 22)
 on:
-  push:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
     branches: [main]
   workflow_dispatch:
 
 concurrency:
-  group: deploy-${{ github.ref }}
+  group: deploy-main
   cancel-in-progress: true
 
 permissions:
@@ -28,6 +32,14 @@ jobs:
   deploy:
     name: Build & restart on VPS
     runs-on: ubuntu-latest
+    # Skip when CI failed/was cancelled, and ignore CI runs from PRs.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push')
+    env:
+      # The exact commit CI tested; empty on manual runs (deploy origin/main).
+      DEPLOY_SHA: ${{ github.event.workflow_run.head_sha }}
     steps:
       - name: Deploy over SSH
         uses: appleboy/ssh-action@v1.2.0
@@ -37,13 +49,14 @@ jobs:
           key: ${{ secrets.VPS_SSH_KEY }}
           port: ${{ secrets.VPS_PORT || 22 }}
           script_stop: true
+          envs: DEPLOY_SHA
           script: |
             set -euo pipefail
             cd "${{ secrets.VPS_APP_DIR }}"
-            # Sync working tree to the just-pushed commit. Untracked files
+            # Sync working tree to the commit CI tested. Untracked files
             # (./backend/models, .env, mqtt certs) are preserved.
             git fetch --prune origin main
-            git reset --hard origin/main
+            git reset --hard "${DEPLOY_SHA:-origin/main}"
             # Rebuild only what changed and restart, with no downtime gap
             # beyond the container swap.
             docker compose up -d --build --remove-orphans
