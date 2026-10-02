@@ -45,11 +45,20 @@ services:
     restart: unless-stopped
     ports:
       - "${MQTT_PORT:-1883}:1883"
+    # Generates the password/ACL files from the env below, then starts the
+    # broker. Anonymous access is disabled (see mqtt/mosquitto.conf).
+    entrypoint: ["/bin/sh", "/mosquitto/entrypoint.sh"]
+    environment:
+      MQTT_USERNAME: ${MQTT_USERNAME:-}
+      MQTT_PASSWORD: ${MQTT_PASSWORD:-}
+      MQTT_DEVICE_USERNAME: ${MQTT_DEVICE_USERNAME:-}
+      MQTT_DEVICE_PASSWORD: ${MQTT_DEVICE_PASSWORD:-}
     volumes:
       - ./mqtt/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - ./mqtt/entrypoint.sh:/mosquitto/entrypoint.sh:ro
       - mqtt_data:/mosquitto/data
     healthcheck:
-      test: ["CMD-SHELL", "mosquitto_sub -t '$$SYS/#' -C 1 -W 3 -q 0 || exit 1"]
+      test: ["CMD-SHELL", "mosquitto_sub -u \"$$MQTT_USERNAME\" -P \"$$MQTT_PASSWORD\" -t '$$SYS/#' -C 1 -W 3 -q 0 || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5

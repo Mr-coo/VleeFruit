@@ -79,3 +79,61 @@ jobs:
           load: false
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  mqtt:
+    name: MQTT broker auth
+    runs-on: ubuntu-latest
+    env:
+      MQTT_USERNAME: ci-backend
+      MQTT_PASSWORD: ci-backend-pw
+      MQTT_DEVICE_USERNAME: ci-device
+      MQTT_DEVICE_PASSWORD: ci-device-pw
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install mosquitto clients
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq mosquitto-clients
+
+      - name: Broker refuses to start without credentials
+        run: |
+          if MQTT_USERNAME= docker compose run --rm --no-deps -T mqtt; then
+            echo "::error::broker started without credentials"; exit 1
+          fi
+
+      - name: Start broker (waits for the healthcheck)
+        run: docker compose up -d --wait mqtt
+
+      - name: Anonymous and bad logins are rejected
+        run: |
+          if mosquitto_pub -h localhost -t vleefruit/request -m x; then
+            echo "::error::anonymous publish was accepted"; exit 1
+          fi
+          if mosquitto_pub -h localhost -u "$MQTT_DEVICE_USERNAME" -P wrong -t vleefruit/request -m x; then
+            echo "::error::wrong password was accepted"; exit 1
+          fi
+
+      - name: ACL allows the request/response flow
+        run: |
+          # sub_as USER PASS TOPIC: print the first message within 5s (or nothing).
+          sub_as() { mosquitto_sub -h localhost -u "$1" -P "$2" -t "$3" -C 1 -W 5 || true; }
+          B="$MQTT_USERNAME $MQTT_PASSWORD"; D="$MQTT_DEVICE_USERNAME $MQTT_DEVICE_PASSWORD"
+
+          # Device -> backend on the request topic.
+          sub_as $B vleefruit/request > req.txt & sleep 1
+          mosquitto_pub -h localhost -u "$MQTT_DEVICE_USERNAME" -P "$MQTT_DEVICE_PASSWORD" -t vleefruit/request -m ping
+          wait; test "$(cat req.txt)" = ping
+
+          # Backend -> device on the response topic.
+          sub_as $D vleefruit/response > resp.txt & sleep 1
+          mosquitto_pub -h localhost -u "$MQTT_USERNAME" -P "$MQTT_PASSWORD" -t vleefruit/response -m ok
+          wait; test "$(cat resp.txt)" = ok
+
+          # Device must not be able to spoof a response.
+          sub_as $B vleefruit/response > spoof.txt & sleep 1
+          mosquitto_pub -h localhost -u "$MQTT_DEVICE_USERNAME" -P "$MQTT_DEVICE_PASSWORD" -t vleefruit/response -m spoofed || true
+          wait; test -z "$(cat spoof.txt)"
+
+      - name: Broker logs
+        if: always()
+        run: docker compose logs mqtt
