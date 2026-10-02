@@ -52,6 +52,12 @@ Settings → Secrets and variables → Actions → **New repository secret**:
 | `VPS_SSH_KEY` | **private** key whose public half is in the user's `authorized_keys` |
 | `VPS_APP_DIR` | absolute checkout path, e.g. `/opt/vleefruit`               |
 | `VPS_PORT`    | optional, SSH port (defaults to `22`)                       |
+| `MQTT_USERNAME` / `MQTT_PASSWORD` | backend's broker login                  |
+| `MQTT_DEVICE_USERNAME` / `MQTT_DEVICE_PASSWORD` | devices' broker login     |
+
+The MQTT secrets are exported into the deploy shell, so they override the VPS
+`.env`. The broker refuses to start if any of them is empty. To run
+`docker compose up` by hand on the VPS, put the same four values in `.env`.
 
 Generate a dedicated deploy key (don't reuse a personal key):
 
@@ -70,6 +76,13 @@ ssh-keygen -t ed25519 -f deploy_key -N "" -C "github-actions-deploy"
 
 ## Notes
 
+- **MQTT auth:** anonymous clients are rejected. `mqtt/entrypoint.sh` builds
+  the password file and ACL from the env at start. The backend user can use all
+  of `vleefruit/#`. The device user can only publish to `vleefruit/request` and
+  `vleefruit/image/request`, and only subscribe to `vleefruit/response` and
+  `vleefruit/image/response`. Traffic on 1883 is not encrypted, so the
+  passwords travel in clear text; add a TLS listener (8883) if devices connect
+  over untrusted networks.
 - **Ports:** the compose publishes `8080` (HTTP API) and `1883` (MQTT). Put a
   reverse proxy (Caddy/nginx) in front for TLS on the API if it's public.
 - **Services:** only `backend` + `mqtt` run. Postgres/Redis/MinIO were removed —

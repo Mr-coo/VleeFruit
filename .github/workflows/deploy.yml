@@ -12,6 +12,10 @@ name: Deploy
 #   VPS_SSH_KEY  - private key for that user (the matching public key is in
 #                  the server's ~/.ssh/authorized_keys)
 #   VPS_APP_DIR  - absolute path to the cloned repo on the VPS
+#   MQTT_USERNAME / MQTT_PASSWORD               - backend broker login
+#   MQTT_DEVICE_USERNAME / MQTT_DEVICE_PASSWORD - device broker login
+#                  (the broker rejects anonymous clients and fails to start
+#                  without these; they override any values in the VPS .env)
 # Optional:
 #   VPS_PORT     - SSH port (defaults to 22)
 on:
@@ -40,6 +44,10 @@ jobs:
     env:
       # The exact commit CI tested; empty on manual runs (deploy origin/main).
       DEPLOY_SHA: ${{ github.event.workflow_run.head_sha }}
+      MQTT_USERNAME: ${{ secrets.MQTT_USERNAME }}
+      MQTT_PASSWORD: ${{ secrets.MQTT_PASSWORD }}
+      MQTT_DEVICE_USERNAME: ${{ secrets.MQTT_DEVICE_USERNAME }}
+      MQTT_DEVICE_PASSWORD: ${{ secrets.MQTT_DEVICE_PASSWORD }}
     steps:
       - name: Deploy over SSH
         uses: appleboy/ssh-action@v1.2.0
@@ -49,7 +57,7 @@ jobs:
           key: ${{ secrets.VPS_SSH_KEY }}
           port: ${{ secrets.VPS_PORT || 22 }}
           script_stop: true
-          envs: DEPLOY_SHA
+          envs: DEPLOY_SHA,MQTT_USERNAME,MQTT_PASSWORD,MQTT_DEVICE_USERNAME,MQTT_DEVICE_PASSWORD
           script: |
             set -euo pipefail
             cd "${{ secrets.VPS_APP_DIR }}"
@@ -57,6 +65,9 @@ jobs:
             # (./backend/models, .env, mqtt certs) are preserved.
             git fetch --prune origin main
             git reset --hard "${DEPLOY_SHA:-origin/main}"
+            # Broker credentials come from Actions secrets; exported shell
+            # vars take precedence over .env in docker compose.
+            export MQTT_USERNAME MQTT_PASSWORD MQTT_DEVICE_USERNAME MQTT_DEVICE_PASSWORD
             # Rebuild only what changed and restart, with no downtime gap
             # beyond the container swap.
             docker compose up -d --build --remove-orphans
