@@ -57,6 +57,8 @@ jobs:
           key: ${{ secrets.VPS_SSH_KEY }}
           port: ${{ secrets.VPS_PORT || 22 }}
           script_stop: true
+          # Cold Go/cgo builds on the VPS exceed the 10m default.
+          command_timeout: 30m
           envs: DEPLOY_SHA,MQTT_USERNAME,MQTT_PASSWORD,MQTT_DEVICE_USERNAME,MQTT_DEVICE_PASSWORD
           script: |
             set -euo pipefail
