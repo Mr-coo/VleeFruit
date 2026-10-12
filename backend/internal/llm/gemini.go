@@ -18,8 +18,9 @@ import (
 // but LLM analysis is disabled.
 var ErrNotConfigured = errors.New("no LLM configured (set GEMINI_API_KEY)")
 
-// defaultEndpoint is Google's Generative Language REST API base. The model and
-// API key are appended per request.
+// defaultEndpoint is Google's Generative Language REST API base. The model is
+// appended per request; the API key is sent in a header so it never ends up in
+// URLs or error messages.
 const defaultEndpoint = "https://generativelanguage.googleapis.com/v1beta/models"
 
 // defaultPrompt constrains the vision model to a single ripeness label.
@@ -31,12 +32,15 @@ const defaultPrompt = "Classify the fruit in this image by ripeness. " +
 type Config struct {
 	// APIKey is the Google Generative Language API key. Empty disables the LLM.
 	APIKey string
-	// Model is the Gemini model id (e.g. "gemini-2.0-flash").
+	// Model is the Gemini model id (e.g. "gemini-3.5-flash-lite").
 	Model string
 	// Endpoint overrides the API base URL (mainly for tests).
 	Endpoint string
 	// Prompt is the instruction sent alongside every image.
 	Prompt string
+	// ThinkingLevel caps how long the model reasons before answering (e.g.
+	// "low"). Empty leaves the model's default, which can be slow.
+	ThinkingLevel string
 	// Timeout bounds a single request.
 	Timeout time.Duration
 }
@@ -55,7 +59,7 @@ func NewClient(cfg Config) *Client {
 		log.Printf("llm: no GEMINI_API_KEY set; image analysis disabled")
 	}
 	if cfg.Model == "" {
-		cfg.Model = "gemini-2.0-flash"
+		cfg.Model = "gemini-3.5-flash-lite"
 	}
 	if cfg.Endpoint == "" {
 		cfg.Endpoint = defaultEndpoint
@@ -88,8 +92,17 @@ type content struct {
 	Parts []part `json:"parts"`
 }
 
+type thinkingConfig struct {
+	ThinkingLevel string `json:"thinkingLevel"`
+}
+
+type generationConfig struct {
+	ThinkingConfig *thinkingConfig `json:"thinkingConfig,omitempty"`
+}
+
 type generateContentRequest struct {
-	Contents []content `json:"contents"`
+	Contents         []content         `json:"contents"`
+	GenerationConfig *generationConfig `json:"generationConfig,omitempty"`
 }
 
 type generateContentResponse struct {
@@ -124,18 +137,24 @@ func (c *Client) Analyze(ctx context.Context, imageData []byte, mimeType string)
 			},
 		}},
 	}
+	if c.cfg.ThinkingLevel != "" {
+		reqBody.GenerationConfig = &generationConfig{
+			ThinkingConfig: &thinkingConfig{ThinkingLevel: c.cfg.ThinkingLevel},
+		}
+	}
 
 	body, err := json.Marshal(reqBody)
 	if err != nil {
 		return "", fmt.Errorf("marshal request: %w", err)
 	}
 
-	url := fmt.Sprintf("%s/%s:generateContent?key=%s", c.cfg.Endpoint, c.cfg.Model, c.cfg.APIKey)
+	url := fmt.Sprintf("%s/%s:generateContent", c.cfg.Endpoint, c.cfg.Model)
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(body))
 	if err != nil {
 		return "", fmt.Errorf("build request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("x-goog-api-key", c.cfg.APIKey)
 
 	resp, err := c.http.Do(req)
 	if err != nil {

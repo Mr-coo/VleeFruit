@@ -35,10 +35,11 @@ func Load() Config {
 			IoUThreshold:  getenvFloat("MODEL_IOU_THRESHOLD", 0.45),
 		},
 		LLM: llm.Config{
-			APIKey:  os.Getenv("GEMINI_API_KEY"),
-			Model:   getenv("GEMINI_MODEL", "gemini-2.0-flash"),
-			Prompt:  os.Getenv("GEMINI_PROMPT"),
-			Timeout: time.Duration(getenvInt("GEMINI_TIMEOUT_SECONDS", 30)) * time.Second,
+			APIKey:        os.Getenv("GEMINI_API_KEY"),
+			Model:         getenv("GEMINI_MODEL", "gemini-3.5-flash-lite"),
+			Prompt:        os.Getenv("GEMINI_PROMPT"),
+			ThinkingLevel: getenv("GEMINI_THINKING_LEVEL", "low"),
+			Timeout:       time.Duration(getenvInt("GEMINI_TIMEOUT_SECONDS", 30)) * time.Second,
 		},
 		MQTT: mqtt.Config{
 			BrokerURL:          os.Getenv("MQTT_BROKER_URL"),

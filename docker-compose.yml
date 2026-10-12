@@ -20,7 +20,8 @@ services:
       MODEL_INPUT_SIZE: ${MODEL_INPUT_SIZE:-640}
       # Vision LLM (Google Gemini) for POST /api/v1/images.
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
-      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.0-flash}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3.5-flash-lite}
+      GEMINI_THINKING_LEVEL: ${GEMINI_THINKING_LEVEL:-low}
       GEMINI_TIMEOUT_SECONDS: ${GEMINI_TIMEOUT_SECONDS:-30}
       GEMINI_PROMPT: ${GEMINI_PROMPT:-}
       # MQTT layer (runs alongside the HTTP server). Points at the local broker
