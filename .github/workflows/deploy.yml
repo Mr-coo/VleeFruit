@@ -80,6 +80,7 @@ jobs:
             echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
             docker compose pull backend
             docker compose up -d --no-build --remove-orphans
-            # Drop images no container uses (previous backend versions).
-            docker image prune -af
+            # Drop previous backend images only; other projects on the VPS
+            # keep theirs.
+            docker image prune -af --filter "label=org.opencontainers.image.source=https://github.com/Mr-coo/VleeFruit"
             docker compose ps
