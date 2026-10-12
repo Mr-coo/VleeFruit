@@ -1,17 +1,18 @@
-# Deployment (VPS, build-on-server)
+# Deployment (VPS, image from GHCR)
 
-The backend is deployed by GitHub Actions over SSH: after the CI workflow
-passes on a push to `main`, the deploy workflow logs into the VPS, checks out
-the tested commit, and rebuilds the stack
-with `docker compose up -d --build`. The VPS builds the image itself — no
-container registry is involved.
+The backend is deployed by GitHub Actions over SSH: on a push to `main`, CI
+builds the backend image and pushes it to
+`ghcr.io/mr-coo/vleefruit-backend:<commit sha>`. Once CI passes, the deploy
+workflow logs into the VPS, checks out the tested commit, pulls that image and
+restarts the stack. Nothing is compiled on the VPS: building the Go/cgo backend
+needs more memory than the server has and freezes it.
 
 See [`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml).
 
 ## 1. One-time VPS setup
 
 Install Docker Engine + the Compose plugin, then clone the repo once. The
-deploy keeps building from this checkout.
+deploy keeps the compose file and broker config in sync from this checkout.
 
 ```bash
 # As the deploy user (must be able to run docker without sudo):
@@ -33,10 +34,13 @@ cp .env.example .env
 #   then edit .env — at minimum set GEMINI_API_KEY=...
 ```
 
-Verify it comes up by hand before wiring CI:
+Verify it comes up by hand (with the MQTT credentials in `.env`). Pull the
+image CI built instead of building on the server:
 
 ```bash
-docker compose up -d --build
+export BACKEND_IMAGE=ghcr.io/mr-coo/vleefruit-backend:latest
+docker compose pull backend
+docker compose up -d --no-build
 docker compose ps
 curl -fsS http://localhost:8080/health   # adjust to the real health route
 ```
@@ -70,9 +74,11 @@ ssh-keygen -t ed25519 -f deploy_key -N "" -C "github-actions-deploy"
 ## 3. How a deploy runs
 
 1. You merge a PR into `main` (or click **Run workflow** on the Deploy action).
-2. CI runs. If it fails, nothing is deployed.
-3. On CI success, Actions SSHes in, `git reset --hard <tested sha>`, `docker compose up -d --build`.
-4. Only changed layers rebuild; the backend container is swapped and MQTT stays up.
+2. CI runs and pushes the backend image to GHCR. If it fails, nothing is deployed.
+3. On CI success, Actions SSHes in, `git reset --hard <tested sha>`, logs into
+   GHCR with the job token, `docker compose pull backend`, `docker compose up -d --no-build`.
+4. The backend container is swapped to the new image and MQTT stays up. Old
+   backend images are pruned.
 
 ## Notes
 
@@ -87,6 +93,6 @@ ssh-keygen -t ed25519 -f deploy_key -N "" -C "github-actions-deploy"
   reverse proxy (Caddy/nginx) in front for TLS on the API if it's public.
 - **Services:** only `backend` + `mqtt` run. Postgres/Redis/MinIO were removed —
   the current app doesn't use them. Re-add them here if that changes.
-- **CI gate:** `ci.yml` builds, vets and tests the Go module and verifies the
-  Docker image builds on every push/PR. The deploy is triggered by CI
+- **CI gate:** `ci.yml` builds, vets and tests the Go module and builds the
+  Docker image on every push/PR (pushed to GHCR only for `main`). The deploy is triggered by CI
   succeeding on `main` (`workflow_run`), so a red CI blocks the deploy.
