@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VleeFruit</title>
+<style>
+  :root { --bg: #f6f7f4; --card: #fff; --fg: #1d2420; --muted: #6b756e; --accent: #2f7d3b; --err: #b3261e; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #131714; --card: #1d231f; --fg: #e7ece8; --muted: #92a095; --accent: #6fcf7c; --err: #f2b8b5; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 24px 16px; background: var(--bg); color: var(--fg);
+         font: 16px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 760px; margin: 0 auto; }
+  h1 { margin: 0 0 20px; font-size: 1.5rem; }
+  .tiles { display: flex; flex-wrap: wrap; gap: 12px; }
+  .tile { flex: 1 1 150px; background: var(--card); border-radius: 12px; padding: 16px;
+          box-shadow: 0 1px 3px rgba(0, 0, 0, .15); }
+  .tile .label { color: var(--muted); font-size: .9rem; }
+  .tile .num { font-size: 2.75rem; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
+  .meta { margin-top: 16px; color: var(--muted); font-size: .9rem; }
+  #status.error { color: var(--err); }
+</style>
+</head>
+<body>
+<main>
+  <h1>VleeFruit</h1>
+  <div class="tiles" id="tiles"></div>
+  <p class="meta">Total <span id="total">-</span> &middot; Other <span id="other">-</span></p>
+  <p class="meta"><span id="status">loading...</span></p>
+</main>
+<script>
+(function () {
+  var tiles = [
+    ["ripe", "Ripe"],
+    ["unripe", "Unripe"],
+    ["overripe", "Overripe"],
+    ["not fruit", "Not fruit"]
+  ];
+  var nums = {};
+  var container = document.getElementById("tiles");
+  tiles.forEach(function (t) {
+    var tile = document.createElement("div");
+    tile.className = "tile";
+    var label = document.createElement("div");
+    label.className = "label";
+    label.textContent = t[1];
+    var num = document.createElement("div");
+    num.className = "num";
+    num.textContent = "-";
+    tile.appendChild(label);
+    tile.appendChild(num);
+    container.appendChild(tile);
+    nums[t[0]] = num;
+  });
+
+  var statusEl = document.getElementById("status");
+  var lastOk = null;
+
+  function renderStatus(failed) {
+    statusEl.className = failed ? "error" : "";
+    if (failed) {
+      statusEl.textContent = "stats unavailable";
+    } else if (lastOk !== null) {
+      statusEl.textContent = "updated " + Math.round((Date.now() - lastOk) / 1000) + "s ago";
+    }
+  }
+
+  function refresh() {
+    fetch("/api/v1/stats", { cache: "no-store" })
+      .then(function (res) {
+        if (!res.ok) { throw new Error("HTTP " + res.status); }
+        return res.json();
+      })
+      .then(function (data) {
+        var counts = data.counts || {};
+        tiles.forEach(function (t) { nums[t[0]].textContent = String(counts[t[0]] || 0); });
+        document.getElementById("total").textContent = String(data.total || 0);
+        document.getElementById("other").textContent = String(counts.other || 0);
+        lastOk = Date.now();
+        renderStatus(false);
+      })
+      .catch(function () { renderStatus(true); });
+  }
+
+  refresh();
+  setInterval(refresh, 5000);
+  setInterval(function () {
+    if (lastOk !== null && statusEl.className === "") { renderStatus(false); }
+  }, 1000);
+})();
+</script>
+</body>
+</html>

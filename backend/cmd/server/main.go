@@ -10,6 +10,7 @@ import (
 	"github.com/Mr-coo/VleeFruit/backend/internal/llm"
 	"github.com/Mr-coo/VleeFruit/backend/internal/mqtt"
 	"github.com/Mr-coo/VleeFruit/backend/internal/router"
+	"github.com/Mr-coo/VleeFruit/backend/internal/store"
 	"github.com/joho/godotenv"
 )
 
@@ -35,9 +36,24 @@ func main() {
 	// Vision LLM layer (Gemini). Disabled when GEMINI_API_KEY is unset.
 	llmClient := llm.NewClient(cfg.LLM)
 
+	// Classification store (SQLite). If it cannot be opened, recording and
+	// stats are disabled; the interface values stay untyped nil so the nil
+	// checks downstream work.
+	var (
+		recorder mqtt.Recorder
+		counter  controller.Counter
+		imageRec controller.Recorder
+	)
+	if st, err := store.Open(cfg.DBPath); err != nil {
+		log.Printf("store: open %s failed, stats disabled: %v", cfg.DBPath, err)
+	} else {
+		defer st.Close()
+		recorder, counter, imageRec = st, st, st
+	}
+
 	// MQTT layer, running alongside the HTTP server. Disabled when
 	// MQTT_BROKER_URL is unset.
-	mqttClient := mqtt.NewClient(cfg.MQTT, llmClient, nil)
+	mqttClient := mqtt.NewClient(cfg.MQTT, llmClient, recorder)
 	if err := mqttClient.Start(); err != nil {
 		log.Fatalf("start mqtt: %v", err)
 	}
@@ -46,8 +62,9 @@ func main() {
 	// Controllers (HTTP handlers). Add more here and wire them in the router.
 	controllers := &controller.Controllers{
 		Health:    controller.NewHealthController(),
-		Image:     controller.NewImageController(llmClient, nil),
+		Image:     controller.NewImageController(llmClient, imageRec),
 		Inference: controller.NewInferenceController(detector),
+		Stats:     controller.NewStatsController(counter),
 	}
 
 	r := router.New(controllers)
