@@ -18,6 +18,12 @@ type ImageAnalyzer interface {
 	Analyze(ctx context.Context, imageData []byte, mimeType string) (string, error)
 }
 
+// Recorder records a successful classification. It is satisfied by
+// *store.Store; a nil Recorder means results are not recorded.
+type Recorder interface {
+	Record(ctx context.Context, source, raw string) error
+}
+
 // Config configures the MQTT client. An empty BrokerURL disables the layer so
 // the server still starts.
 type Config struct {
@@ -44,13 +50,15 @@ type Config struct {
 type Client struct {
 	cfg      Config
 	analyzer ImageAnalyzer
+	recorder Recorder
 	client   paho.Client
 }
 
 // NewClient builds an MQTT client, applying sensible defaults. The analyzer is
-// used to handle images; it may be nil to disable image handling. It does not
-// connect; call Start for that.
-func NewClient(cfg Config, analyzer ImageAnalyzer) *Client {
+// used to handle images; it may be nil to disable image handling. The recorder
+// may be nil to skip recording results. It does not connect; call Start for
+// that.
+func NewClient(cfg Config, analyzer ImageAnalyzer, recorder Recorder) *Client {
 	if cfg.ClientID == "" {
 		cfg.ClientID = "vleefruit-backend"
 	}
@@ -66,7 +74,7 @@ func NewClient(cfg Config, analyzer ImageAnalyzer) *Client {
 	if cfg.ImageResponseTopic == "" {
 		cfg.ImageResponseTopic = "vleefruit/image/response"
 	}
-	return &Client{cfg: cfg, analyzer: analyzer}
+	return &Client{cfg: cfg, analyzer: analyzer, recorder: recorder}
 }
 
 // Enabled reports whether a broker is configured.
@@ -133,19 +141,34 @@ func (c *Client) handleImage(client paho.Client, msg paho.Message) {
 		return
 	}
 
+	c.publishImageResult(client, c.analyzeAndRecord(context.Background(), data))
+}
+
+// analyzeAndRecord analyzes the image, records a successful result, and
+// returns the payload to publish. Recording failures are logged, never
+// surfaced to the device.
+func (c *Client) analyzeAndRecord(ctx context.Context, data []byte) string {
 	// Detect the content type from the payload's magic bytes.
 	mimeType := http.DetectContentType(data)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 60*time.Second)
 	defer cancel()
 
 	result, err := c.analyzer.Analyze(ctx, data, mimeType)
 	if err != nil {
 		log.Printf("mqtt: image analysis failed: %v", err)
-		c.publishImageResult(client, "error: "+err.Error())
-		return
+		return "error: " + err.Error()
 	}
-	c.publishImageResult(client, result)
+
+	if c.recorder != nil {
+		// Fresh context so the write is independent of the analysis deadline.
+		rctx, rcancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer rcancel()
+		if err := c.recorder.Record(rctx, "mqtt", result); err != nil {
+			log.Printf("store: record failed: %v", err)
+		}
+	}
+	return result
 }
 
 func (c *Client) publishImageResult(client paho.Client, payload string) {

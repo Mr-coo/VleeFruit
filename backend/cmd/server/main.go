@@ -37,7 +37,7 @@ func main() {
 
 	// MQTT layer, running alongside the HTTP server. Disabled when
 	// MQTT_BROKER_URL is unset.
-	mqttClient := mqtt.NewClient(cfg.MQTT, llmClient)
+	mqttClient := mqtt.NewClient(cfg.MQTT, llmClient, nil)
 	if err := mqttClient.Start(); err != nil {
 		log.Fatalf("start mqtt: %v", err)
 	}
@@ -46,7 +46,7 @@ func main() {
 	// Controllers (HTTP handlers). Add more here and wire them in the router.
 	controllers := &controller.Controllers{
 		Health:    controller.NewHealthController(),
-		Image:     controller.NewImageController(llmClient),
+		Image:     controller.NewImageController(llmClient, nil),
 		Inference: controller.NewInferenceController(detector),
 	}
 
