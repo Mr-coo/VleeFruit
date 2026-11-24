@@ -35,12 +35,21 @@ RUN --mount=type=cache,target=/go/pkg/mod \
 ########################
 FROM debian:bookworm-slim AS ort
 ARG ORT_VERSION
-RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl && \
+# The microsoft/onnxruntime GitHub releases are no longer reachable, so take
+# the same official build from Microsoft's NuGet package (its linux-x64
+# libonnxruntime.so is byte-identical to the GitHub tarball's). The checksum
+# pins the 1.20.1 package; update it together with ORT_VERSION.
+ARG ORT_NUPKG_SHA256=9c32108e9a1c78b090a95c2a219f244dd5f067d4caf68fb0f967103f3f20839c
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl unzip && \
     rm -rf /var/lib/apt/lists/* && \
-    curl -fsSL -o /tmp/ort.tgz \
-      "https://github.com/microsoft/onnxruntime/releases/download/v${ORT_VERSION}/onnxruntime-linux-x64-${ORT_VERSION}.tgz" && \
-    mkdir -p /ort && tar -xzf /tmp/ort.tgz -C /ort --strip-components=1 && \
-    rm /tmp/ort.tgz
+    curl -fsSL -o /tmp/ort.nupkg \
+      "https://api.nuget.org/v3-flatcontainer/microsoft.ml.onnxruntime/${ORT_VERSION}/microsoft.ml.onnxruntime.${ORT_VERSION}.nupkg" && \
+    echo "${ORT_NUPKG_SHA256}  /tmp/ort.nupkg" | sha256sum -c - && \
+    mkdir -p /ort/lib && \
+    unzip -j /tmp/ort.nupkg runtimes/linux-x64/native/libonnxruntime.so -d /ort/lib && \
+    cp /ort/lib/libonnxruntime.so "/ort/lib/libonnxruntime.so.${ORT_VERSION}" && \
+    cp /ort/lib/libonnxruntime.so /ort/lib/libonnxruntime.so.1 && \
+    rm /tmp/ort.nupkg
 
 ########################
 # Runtime stage (glibc)
