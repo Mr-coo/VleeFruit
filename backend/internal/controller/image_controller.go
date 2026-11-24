@@ -105,7 +105,7 @@ func (ic *ImageController) Upload(c *gin.Context) {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		if err := ic.recorder.Record(ctx, "http", analysis); err != nil {
-			log.Printf("store: record failed: %v", err)
+			log.Printf("store: record http result failed: %v", err)
 		}
 	}
 

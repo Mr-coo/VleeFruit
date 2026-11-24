@@ -165,7 +165,7 @@ func (c *Client) analyzeAndRecord(ctx context.Context, data []byte) string {
 		rctx, rcancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer rcancel()
 		if err := c.recorder.Record(rctx, "mqtt", result); err != nil {
-			log.Printf("store: record failed: %v", err)
+			log.Printf("store: record mqtt result failed: %v", err)
 		}
 	}
 	return result

@@ -2,6 +2,7 @@ package controller
 
 import (
 	"context"
+	"log"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -41,7 +42,8 @@ func (s *StatsController) Stats(c *gin.Context) {
 
 	counts, err := s.counter.Counts(c.Request.Context())
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		log.Printf("stats: counts failed: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "stats query failed"})
 		return
 	}
 

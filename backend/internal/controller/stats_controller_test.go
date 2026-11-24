@@ -65,8 +65,8 @@ func TestStatsCounterError(t *testing.T) {
 	if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
 		t.Fatalf("decode body: %v", err)
 	}
-	if body["error"] == "" {
-		t.Errorf("expected error message, got %v", body)
+	if body["error"] != "stats query failed" {
+		t.Errorf("error = %q, want %q", body["error"], "stats query failed")
 	}
 }
 
