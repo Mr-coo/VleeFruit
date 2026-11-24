@@ -6,4 +6,5 @@ type Controllers struct {
 	Health    *HealthController
 	Image     *ImageController
 	Inference *InferenceController
+	Stats     *StatsController
 }

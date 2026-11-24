@@ -1,10 +1,13 @@
 package controller
 
 import (
+	"context"
 	"errors"
 	"io"
+	"log"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/Mr-coo/VleeFruit/backend/internal/llm"
 	"github.com/gin-gonic/gin"
@@ -22,11 +25,26 @@ var allowedImageTypes = map[string]bool{
 
 // ImageController handles image uploads and forwards them to the vision LLM.
 type ImageController struct {
-	llm *llm.Client
+	llm      ImageAnalyzer
+	recorder Recorder
 }
 
-func NewImageController(client *llm.Client) *ImageController {
-	return &ImageController{llm: client}
+// ImageAnalyzer analyzes raw image bytes and returns a text result. It is
+// satisfied by *llm.Client.
+type ImageAnalyzer interface {
+	Analyze(ctx context.Context, imageData []byte, mimeType string) (string, error)
+}
+
+// Recorder records a successful classification. It is satisfied by
+// *store.Store; a nil Recorder means results are not recorded.
+type Recorder interface {
+	Record(ctx context.Context, source, raw string) error
+}
+
+// NewImageController builds an ImageController. The recorder may be nil to skip
+// recording results.
+func NewImageController(client ImageAnalyzer, recorder Recorder) *ImageController {
+	return &ImageController{llm: client, recorder: recorder}
 }
 
 // Upload accepts a single image file via multipart/form-data (field "image")
@@ -80,6 +98,15 @@ func (ic *ImageController) Upload(c *gin.Context) {
 		}
 		c.JSON(http.StatusBadGateway, gin.H{"error": err.Error()})
 		return
+	}
+
+	if ic.recorder != nil {
+		// Detached from the request so a client disconnect doesn't cancel the write.
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := ic.recorder.Record(ctx, "http", analysis); err != nil {
+			log.Printf("store: record http result failed: %v", err)
+		}
 	}
 
 	c.JSON(http.StatusOK, gin.H{

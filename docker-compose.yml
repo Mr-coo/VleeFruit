@@ -14,7 +14,11 @@ services:
     volumes:
       # Mount your exported model here; MODEL_PATH points at it below.
       - ./backend/models:/app/models:ro
+      # Persist SQLite classification counts database
+      - vleefruit_data:/app/data
     environment:
+      # Classification counts database (SQLite, persisted in the vleefruit_data volume)
+      DB_PATH: ${DB_PATH:-/app/data/vleefruit.db}
       # AI model (in-process ONNX). libonnxruntime.so path is baked into the image.
       MODEL_PATH: ${MODEL_PATH:-/app/models/model.onnx}
       MODEL_INPUT_NAME: ${MODEL_INPUT_NAME:-images}
@@ -70,6 +74,7 @@ services:
 
 volumes:
   mqtt_data:
+  vleefruit_data:
 
 networks:
   vleefruit:

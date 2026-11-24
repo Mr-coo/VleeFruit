@@ -17,12 +17,14 @@ type Config struct {
 	Inference inference.Config
 	LLM       llm.Config
 	MQTT      mqtt.Config
+	DBPath    string
 }
 
 // Load reads configuration from the environment, applying sensible defaults.
 func Load() Config {
 	return Config{
-		Port: getenv("BACKEND_PORT", "8080"),
+		Port:   getenv("BACKEND_PORT", "8080"),
+		DBPath: getenv("DB_PATH", "/app/data/vleefruit.db"),
 		Inference: inference.Config{
 			ModelPath:     os.Getenv("MODEL_PATH"),
 			SharedLibPath: os.Getenv("ONNXRUNTIME_LIB_PATH"),
