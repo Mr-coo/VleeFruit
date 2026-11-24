@@ -57,6 +57,9 @@ COPY --from=ort /ort/lib/libonnxruntime.so* /app/lib/
 
 ENV ONNXRUNTIME_LIB_PATH=/app/lib/libonnxruntime.so
 
+# Create and own the data directory so the SQLite database can be written here by uid 10001
+RUN mkdir -p /app/data && chown app:app /app/data
+
 USER app
 EXPOSE 8080
 

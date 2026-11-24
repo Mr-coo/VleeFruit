@@ -91,8 +91,9 @@ ssh-keygen -t ed25519 -f deploy_key -N "" -C "github-actions-deploy"
   over untrusted networks.
 - **Ports:** the compose publishes `8080` (HTTP API) and `1883` (MQTT). Put a
   reverse proxy (Caddy/nginx) in front for TLS on the API if it's public.
-- **Services:** only `backend` + `mqtt` run. Postgres/Redis/MinIO were removed —
-  the current app doesn't use them. Re-add them here if that changes.
+- **Services:** only `backend` + `mqtt` run. The backend keeps classification counts in SQLite at
+  `/app/data/vleefruit.db` on the `vleefruit_data` named volume (back it up by copying that volume;
+  `docker compose down -v` deletes it). Dashboard at `/`, counts API at `/api/v1/stats`.
 - **CI gate:** `ci.yml` builds, vets and tests the Go module and builds the
   Docker image on every push/PR (pushed to GHCR only for `main`). The deploy is triggered by CI
   succeeding on `main` (`workflow_run`), so a red CI blocks the deploy.
